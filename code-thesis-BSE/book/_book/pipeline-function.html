@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Chapter 5 Pipeline function | Forecast evaluation pipeline</title>
+<meta name="author" content="Alessandro Ciancetta">
+<meta name="description" content="The following function wraps up the code and will be used during the forecast evaluation. preprocess_fredmd &lt;- function(fredmd, r = 8, thresh = 0.01, verbose = TRUE){  ## extract data and...">
+<meta name="generator" content="bookdown 0.33 with bs4_book()">
+<meta property="og:title" content="Chapter 5 Pipeline function | Forecast evaluation pipeline">
+<meta property="og:type" content="book">
+<meta property="og:description" content="The following function wraps up the code and will be used during the forecast evaluation. preprocess_fredmd &lt;- function(fredmd, r = 8, thresh = 0.01, verbose = TRUE){  ## extract data and...">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chapter 5 Pipeline function | Forecast evaluation pipeline">
+<meta name="twitter:description" content="The following function wraps up the code and will be used during the forecast evaluation. preprocess_fredmd &lt;- function(fredmd, r = 8, thresh = 0.01, verbose = TRUE){  ## extract data and...">
+<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
+<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.4.0/transition.js"></script><script src="libs/bs3compat-0.4.0/tabs.js"></script><script src="libs/bs3compat-0.4.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
+<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="libs/kePrint-0.0.1/kePrint.js"></script><link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">Forecast evaluation pipeline</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+</form>
+
+      <nav aria-label="Table of contents"><h2>Table of contents</h2>
+        <ul class="book-toc list-unstyled">
+<li><a class="" href="index.html"><span class="header-section-number">1</span> About</a></li>
+<li><a class="" href="loading-the-data-and-first-inspection.html"><span class="header-section-number">2</span> Loading the data and first inspection</a></li>
+<li><a class="" href="transformation.html"><span class="header-section-number">3</span> 1) Transformation</a></li>
+<li><a class="" href="imputation.html"><span class="header-section-number">4</span> 2) Imputation</a></li>
+<li><a class="active" href="pipeline-function.html"><span class="header-section-number">5</span> Pipeline function</a></li>
+</ul>
+
+        <div class="book-extra">
+          
+        </div>
+      </nav>
+</div>
+  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="pipeline-function" class="section level1" number="5">
+<h1>
+<span class="header-section-number">5</span> Pipeline function<a class="anchor" aria-label="anchor" href="#pipeline-function"><i class="fas fa-link"></i></a>
+</h1>
+<p>The following function wraps up the code and will be used during the forecast evaluation.</p>
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">preprocess_fredmd</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">fredmd</span>, <span class="va">r</span> <span class="op">=</span> <span class="fl">8</span>, <span class="va">thresh</span> <span class="op">=</span> <span class="fl">0.01</span>, <span class="va">verbose</span> <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span><span class="op">{</span></span>
+<span>  <span class="co">## extract data and transformation codes</span></span>
+<span>  <span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html">as_tibble</a></span><span class="op">(</span><span class="va">fredmd</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span>,<span class="op">]</span><span class="op">)</span></span>
+<span>  <span class="va">tcodes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html">unlist</a></span><span class="op">(</span><span class="va">fredmd</span><span class="op">[</span><span class="fl">1</span>,<span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
+<span>  </span>
+<span>  <span class="co">## execute the preprocessing pipeline</span></span>
+<span>  <span class="va">d_stationary</span> <span class="op">&lt;-</span> <span class="fu">transform_fred</span><span class="op">(</span><span class="va">d</span>, tcode <span class="op">=</span> <span class="va">tcodes</span><span class="op">)</span></span>
+<span>  <span class="va">d_outlier</span> <span class="op">&lt;-</span> <span class="fu">outlier_to_missing</span><span class="op">(</span><span class="va">d_stationary</span><span class="op">)</span></span>
+<span>  <span class="co"># d_imputed &lt;- extract_and_fill(d_outlier, r = 8)$imputed</span></span>
+<span>  <span class="va">d_imputed</span> <span class="op">&lt;-</span> <span class="fu">em_impute</span><span class="op">(</span><span class="va">d_outlier</span>, <span class="va">r</span>, <span class="va">thresh</span>, <span class="va">verbose</span><span class="op">)</span></span>
+<span>  </span>
+<span>  <span class="co">## output</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/function.html">return</a></span><span class="op">(</span><span class="va">d_imputed</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">preprocessed_data</span> <span class="op">&lt;-</span> <span class="fu">preprocess_fredmd</span><span class="op">(</span><span class="va">fredmd</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Column 2, RPI. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 3, W875RX1. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 4, DPCERA3M086SBEA. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 5, CMRMTSPLx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 6, RETAILx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 7, INDPRO. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 8, IPFPNSS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 9, IPFINAL. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 10, IPCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 11, IPDCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 12, IPNCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 13, IPBUSEQ. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 14, IPMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 15, IPDMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 16, IPNMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 17, IPMANSICS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 18, IPB51222S. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 19, IPFUELS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 20, CUMFNS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 21, HWI. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 22, HWIURATIO. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 23, CLF16OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 24, CE16OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 25, UNRATE. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 26, UEMPMEAN. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 27, UEMPLT5. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 28, UEMP5TO14. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 29, UEMP15OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 30, UEMP15T26. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 31, UEMP27OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 32, CLAIMSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 33, PAYEMS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 34, USGOOD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 35, CES1021000001. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 36, USCONS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 37, MANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 38, DMANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 39, NDMANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 40, SRVPRD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 41, USTPU. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 42, USWTRADE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 43, USTRADE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 44, USFIRE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 45, USGOVT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 46, CES0600000007. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 47, AWOTMAN. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 48, AWHMAN. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 49, HOUST. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 50, HOUSTNE. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 51, HOUSTMW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 52, HOUSTS. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 53, HOUSTW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 54, PERMIT. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 55, PERMITNE. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 56, PERMITMW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 57, PERMITS. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 58, PERMITW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 59, ACOGNO. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 60, AMDMNOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 61, ANDENOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 62, AMDMUOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 63, BUSINVx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 64, ISRATIOx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 65, M1SL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 66, M2SL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 67, M2REAL. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 68, BOGMBASE. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 69, TOTRESNS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 70, NONBORRES. Transformation 7 (diffp)</span></span>
+<span><span class="co">#&gt; Column 71, BUSLOANS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 72, REALLN. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 73, NONREVSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 74, CONSPI. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 75, S.P.500. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 76, S.P..indust. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 77, S.P.div.yield. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 78, S.P.PE.ratio. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 79, FEDFUNDS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 80, CP3Mx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 81, TB3MS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 82, TB6MS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 83, GS1. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 84, GS5. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 85, GS10. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 86, AAA. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 87, BAA. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 88, COMPAPFFx. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 89, TB3SMFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 90, TB6SMFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 91, T1YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 92, T5YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 93, T10YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 94, AAAFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 95, BAAFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 96, TWEXAFEGSMTHx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 97, EXSZUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 98, EXJPUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 99, EXUSUKx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 100, EXCAUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 101, WPSFD49207. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 102, WPSFD49502. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 103, WPSID61. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 104, WPSID62. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 105, OILPRICEx. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 106, PPICMM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 107, CPIAUCSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 108, CPIAPPSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 109, CPITRNSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 110, CPIMEDSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 111, CUSR0000SAC. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 112, CUSR0000SAD. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 113, CUSR0000SAS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 114, CPIULFSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 115, CUSR0000SA0L2. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 116, CUSR0000SA0L5. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 117, PCEPI. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 118, DDURRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 119, DNDGRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 120, DSERRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 121, CES0600000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 122, CES2000000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 123, CES3000000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 124, UMCSENTx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 125, DTCOLNVHFNM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 126, DTCTHFNM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 127, INVEST. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 128, VIXCLSx. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Distance is: 1.6718 Distance is: 3.3624 Distance is: 0.0903</span></span>
+<span><span class="co">#&gt; Distance is: 0.0649 Distance is: 0.0523 Distance is: 3.1116</span></span>
+<span><span class="co">#&gt; Distance is: 0.0406 Distance is: 3.2676 Distance is: 0.0349</span></span>
+<span><span class="co">#&gt; Distance is: 0.0323 Distance is: 0.0298 Distance is: 0.0273</span></span>
+<span><span class="co">#&gt; Distance is: 0.0249 Distance is: 0.0227 Distance is: 1.0722</span></span>
+<span><span class="co">#&gt; Distance is: 0.019 Distance is: 0.0174 Distance is: 0.016</span></span>
+<span><span class="co">#&gt; Distance is: 0.0148 Distance is: 0.0137 Distance is: 0.0127</span></span>
+<span><span class="co">#&gt; Distance is: 0.0118 Distance is: 0.011 Distance is: 0.0103</span></span>
+<span><span class="co">#&gt; Distance is: 0.0096</span></span>
+<span><span class="va">preprocessed_data</span></span>
+<span><span class="co">#&gt; # A tibble: 770 x 128</span></span>
+<span><span class="co">#&gt;    sasdate         RPI   W875RX1 DPCERA3~1 CMRMTS~2  RETAILx</span></span>
+<span><span class="co">#&gt;    &lt;chr&gt;         &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;</span></span>
+<span><span class="co">#&gt;  1 1/1/1959   0.00191   0.00178    0.00408  5.17e-3  5.88e-3</span></span>
+<span><span class="co">#&gt;  2 2/1/1959   0.00393   0.00361    0.0104   7.36e-3  7.31e-3</span></span>
+<span><span class="co">#&gt;  3 3/1/1959   0.00643   0.00736    0.00941 -3.42e-3  8.32e-3</span></span>
+<span><span class="co">#&gt;  4 4/1/1959   0.00649   0.00705   -0.00364  1.99e-2  6.16e-4</span></span>
+<span><span class="co">#&gt;  5 5/1/1959   0.00576   0.00662    0.0120   6.80e-3  7.80e-3</span></span>
+<span><span class="co">#&gt;  6 6/1/1959   0.00310   0.00297    0.00371 -5.15e-5  9.06e-3</span></span>
+<span><span class="co">#&gt;  7 7/1/1959  -0.000589 -0.000764  -0.00343  1.21e-2 -3.30e-4</span></span>
+<span><span class="co">#&gt;  8 8/1/1959  -0.00564  -0.00575    0.00600 -5.24e-2  6.36e-3</span></span>
+<span><span class="co">#&gt;  9 9/1/1959   0.000721  0          0.0100   1.46e-2 -1.32e-2</span></span>
+<span><span class="co">#&gt; 10 10/1/1959  0.00128   0.00115   -0.00684  1.60e-3  7.29e-3</span></span>
+<span><span class="co">#&gt; # ... with 760 more rows, 122 more variables: INDPRO &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   IPFPNSS &lt;dbl&gt;, IPFINAL &lt;dbl&gt;, IPCONGD &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   IPDCONGD &lt;dbl&gt;, IPNCONGD &lt;dbl&gt;, IPBUSEQ &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   IPMAT &lt;dbl&gt;, IPDMAT &lt;dbl&gt;, IPNMAT &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   IPMANSICS &lt;dbl&gt;, IPB51222S &lt;dbl&gt;, IPFUELS &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   CUMFNS &lt;dbl&gt;, HWI &lt;dbl&gt;, HWIURATIO &lt;dbl&gt;,</span></span>
+<span><span class="co">#&gt; #   CLF16OV &lt;dbl&gt;, CE16OV &lt;dbl&gt;, UNRATE &lt;dbl&gt;, ...</span></span></code></pre></div>
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># check that wrapper function gives the same result</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="va">preprocessed_data</span> <span class="op">!=</span> <span class="va">d_imputed</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
+
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://tidyverse.tidyverse.org">tidyverse</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="https://lubridate.tidyverse.org">lubridate</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va">gridExtra</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html">library</a></span><span class="op">(</span><span class="va"><a href="http://haozhu233.github.io/kableExtra/">kableExtra</a></span><span class="op">)</span></span>
+<span></span>
+<span><span class="co">## Load code from script folders</span></span>
+<span><span class="va">preprocessing_scripts_env</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/environment.html">new.env</a></span><span class="op">(</span><span class="op">)</span>    </span>
+<span><span class="va">file.sources</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html">list.files</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"/sourcecode/"</span>,</span>
+<span>                                 <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"forecast_algorithms"</span>, <span class="st">"forecast_evaluation"</span><span class="op">)</span></span>
+<span>                                 <span class="op">)</span>, </span>
+<span>                          pattern<span class="op">=</span><span class="st">".R$"</span>, full.names<span class="op">=</span><span class="cn">TRUE</span>, </span>
+<span>                          ignore.case<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">file.sources</span>, <span class="va">source</span>, <span class="va">preprocessing_scripts_env</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/attach.html">attach</a></span><span class="op">(</span><span class="va">preprocessing_scripts_env</span>, name<span class="op">=</span><span class="st">"sourced_scripts"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Load data</span></span>
+<span><span class="va">fredmd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html">read.csv</a></span><span class="op">(</span><span class="st">"data/current.csv"</span><span class="op">)</span></span>
+<span><span class="va">target_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"UNRATE"</span>, <span class="st">"W875RX1"</span>, <span class="st">"GS10"</span>, <span class="st">"CPIAUCSL"</span>, <span class="st">"WPSFD49207"</span>, <span class="st">"PAYEMS"</span>, <span class="st">"HOUST"</span>, <span class="st">"INDPRO"</span>, <span class="st">"M2SL"</span>, <span class="st">"S.P.500"</span><span class="op">)</span></span></code></pre></div>
+<p>We evaluate the forecasting performances of different models using a rolling-window approach.</p>
+<div class="inline-table"><table class="table table-sm"><tbody>
+<tr class="odd">
+<td>Initial training period</td>
+<td>1/1/1959 – 12/1/2014</td>
+</tr>
+<tr class="even">
+<td>Tested period</td>
+<td>1/1/2015 – 1/1/2023</td>
+</tr>
+</tbody></table></div>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># fredmd$sasdate[c(1+1, 649, 650, 770)]</span></span>
+<span><span class="co"># window_size = 648</span></span>
+<span><span class="va">fredmd</span><span class="op">$</span><span class="va">sasdate</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">+</span><span class="fl">1</span>, <span class="fl">673</span>, <span class="fl">674</span>, <span class="fl">770</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; [1] "1/1/1959"  "12/1/2014" "1/1/2015"  "1/1/2023"</span></span>
+<span><span class="va">window_size</span> <span class="op">=</span> <span class="fl">672</span></span></code></pre></div>
+<p>All the results are compared to the RMSFE of a benchmark AR(1) model.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ar1_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">ar1_benchmark</span>, </span>
+<span>                                           horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                           <span class="va">fredmd</span>,</span>
+<span>                                           target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                           window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                           pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                           num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                           verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<div id="evaluation-of-the-models" class="section level2" number="5.1">
+<h2>
+<span class="header-section-number">5.1</span> Evaluation of the models<a class="anchor" aria-label="anchor" href="#evaluation-of-the-models"><i class="fas fa-link"></i></a>
+</h2>
+<p>We consider the following models: Principal Component Regression (PCR), … <em>ADD HERE THE MODELS</em></p>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pcr_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">pcr_reg</span>, </span>
+<span>                                           horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                           <span class="va">fredmd</span>,</span>
+<span>                                           target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                           window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                           pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                           num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                           verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="results" class="section level2" number="5.2">
+<h2>
+<span class="header-section-number">5.2</span> Results<a class="anchor" aria-label="anchor" href="#results"><i class="fas fa-link"></i></a>
+</h2>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Benchmark results are automatically loaded if available for the correct </span></span>
+<span><span class="co">## horizon/window size/pseudo type in the 'results' folder</span></span>
+<span><span class="va">rmse_table</span> <span class="op">&lt;-</span> <span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">pcr_horizon1</span>, column_name <span class="op">=</span> <span class="st">"PCR"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Loading benchmark results from results/ar1_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Registered S3 method overwritten by 'quantmod':</span></span>
+<span><span class="co">#&gt;   method            from</span></span>
+<span><span class="co">#&gt;   as.zoo.data.frame zoo</span></span>
+<span></span>
+<span><span class="co">## ... then simply left_join the tables for the other models obtained using get_rmse_table() on the evaluation object</span></span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Print table</span></span>
+<span><span class="va">rmse_table</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable</a></span><span class="op">(</span>format <span class="op">=</span> <span class="st">"html"</span>, </span>
+<span>        caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Relative RMSE for "</span>,</span>
+<span>                         <span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">horizon</span>, </span>
+<span>                         <span class="st">"-step forecasts. Benchmark model: AR(1). </span></span>
+<span><span class="st">                         Size of the rolling window: "</span>,</span>
+<span>                         <span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">window_size</span>, <span class="st">". "</span>,</span>
+<span>                         <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">pseudo</span>, </span>
+<span>                                <span class="st">"Pseudo real-time evaluation."</span>,</span>
+<span>                                <span class="st">"Real-time evaluation."</span><span class="op">)</span><span class="op">)</span>, </span>
+<span>        digits <span class="op">=</span> <span class="fl">4</span><span class="op">)</span> <span class="op"><a href="https://magrittr.tidyverse.org/reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="co"># kable(format = "latex", digits = 4)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/kableExtra/man/kable_classic.html">kable_classic</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<div class="inline-table"><table class=" lightable-classic" style='font-family: "Arial Narrow", "Source Sans Pro", sans-serif; margin-left: auto; margin-right: auto;'>
+<caption>
+<span id="tab:unnamed-chunk-32">Table 5.1: </span>Relative RMSE for 1-step forecasts. Benchmark model: AR(1).
+Size of the rolling window: 672. Pseudo real-time evaluation.
+</caption>
+<thead><tr>
+<th style="text-align:left;">
+Variable
+</th>
+<th style="text-align:left;">
+PCR
+</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+UNRATE
+</td>
+<td style="text-align:left;">
+0.9190
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+W875RX1
+</td>
+<td style="text-align:left;">
+0.1196 *
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+GS10
+</td>
+<td style="text-align:left;">
+0.8458 *
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+CPIAUCSL
+</td>
+<td style="text-align:left;">
+0.0098 ***
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+WPSFD49207
+</td>
+<td style="text-align:left;">
+0.0160 **
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAYEMS
+</td>
+<td style="text-align:left;">
+0.0050 *
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+HOUST
+</td>
+<td style="text-align:left;">
+0.0115 ***
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+INDPRO
+</td>
+<td style="text-align:left;">
+0.0205
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+M2SL
+</td>
+<td style="text-align:left;">
+0.0140 *
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+S.P.500
+</td>
+<td style="text-align:left;">
+0.1527 **
+</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+</div>
+  <div class="chapter-nav">
+<div class="prev"><a href="imputation.html"><span class="header-section-number">4</span> 2) Imputation</a></div>
+<div class="empty"></div>
+</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
+      <ul class="nav navbar-nav">
+<li><a class="nav-link" href="#pipeline-function"><span class="header-section-number">5</span> Pipeline function</a></li>
+<li><a class="nav-link" href="#evaluation-of-the-models"><span class="header-section-number">5.1</span> Evaluation of the models</a></li>
+<li><a class="nav-link" href="#results"><span class="header-section-number">5.2</span> Results</a></li>
+</ul>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          
+        </ul>
+</div>
+    </nav>
+</div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>Forecast evaluation pipeline</strong>" was written by Alessandro Ciancetta. It was last built on 2023-04-27.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer><!-- dynamically load mathjax for compatibility with self-contained --><script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script><script type="text/x-mathjax-config">const popovers = document.querySelectorAll('a.footnote-ref[data-toggle="popover"]');
+for (let popover of popovers) {
+  const div = document.createElement('div');
+  div.setAttribute('style', 'position: absolute; top: 0, left:0; width:0, height:0, overflow: hidden; visibility: hidden;');
+  div.innerHTML = popover.getAttribute('data-content');
+
+  var has_math = div.querySelector("span.math");
+  if (has_math) {
+    document.body.appendChild(div);
+    MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+    MathJax.Hub.Queue(function() {
+      popover.setAttribute('data-content', div.innerHTML);
+      document.body.removeChild(div);
+    })
+  }
+}
+</script>
+</body>
+</html>

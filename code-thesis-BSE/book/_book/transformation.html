@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Chapter 3 1) Transformation | Forecast evaluation pipeline</title>
+<meta name="author" content="Alessandro Ciancetta">
+<meta name="description" content="The column tcode denotes the following data transformation for a series \(x\): (1) no transformation; (2) \(\Delta x_t\); (3) \(\Delta^2 x_T\); (4) \(\log(x_t)\); (5) \(\Delta\log(x_t)\); (6)...">
+<meta name="generator" content="bookdown 0.33 with bs4_book()">
+<meta property="og:title" content="Chapter 3 1) Transformation | Forecast evaluation pipeline">
+<meta property="og:type" content="book">
+<meta property="og:description" content="The column tcode denotes the following data transformation for a series \(x\): (1) no transformation; (2) \(\Delta x_t\); (3) \(\Delta^2 x_T\); (4) \(\log(x_t)\); (5) \(\Delta\log(x_t)\); (6)...">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chapter 3 1) Transformation | Forecast evaluation pipeline">
+<meta name="twitter:description" content="The column tcode denotes the following data transformation for a series \(x\): (1) no transformation; (2) \(\Delta x_t\); (3) \(\Delta^2 x_T\); (4) \(\log(x_t)\); (5) \(\Delta\log(x_t)\); (6)...">
+<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
+<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.4.0/transition.js"></script><script src="libs/bs3compat-0.4.0/tabs.js"></script><script src="libs/bs3compat-0.4.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
+<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="libs/kePrint-0.0.1/kePrint.js"></script><link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">Forecast evaluation pipeline</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+</form>
+
+      <nav aria-label="Table of contents"><h2>Table of contents</h2>
+        <ul class="book-toc list-unstyled">
+<li><a class="" href="index.html"><span class="header-section-number">1</span> About</a></li>
+<li><a class="" href="loading-the-data-and-first-inspection.html"><span class="header-section-number">2</span> Loading the data and first inspection</a></li>
+<li><a class="active" href="transformation.html"><span class="header-section-number">3</span> 1) Transformation</a></li>
+<li><a class="" href="imputation.html"><span class="header-section-number">4</span> 2) Imputation</a></li>
+<li><a class="" href="pipeline-function.html"><span class="header-section-number">5</span> Pipeline function</a></li>
+</ul>
+
+        <div class="book-extra">
+          
+        </div>
+      </nav>
+</div>
+  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="transformation" class="section level1" number="3">
+<h1>
+<span class="header-section-number">3</span> 1) Transformation<a class="anchor" aria-label="anchor" href="#transformation"><i class="fas fa-link"></i></a>
+</h1>
+<p>The column <code>tcode</code> denotes the following data transformation for a series <span class="math inline">\(x\)</span>: (1) no transformation; (2) <span class="math inline">\(\Delta x_t\)</span>; (3) <span class="math inline">\(\Delta^2 x_T\)</span>; (4) <span class="math inline">\(\log(x_t)\)</span>; (5) <span class="math inline">\(\Delta\log(x_t)\)</span>; (6) <span class="math inline">\(\Delta^2\log(x_t)\)</span> (7) <span class="math inline">\(\Delta(x_t / x_{t-1} -1)\)</span>.</p>
+<p>The FRED column gives mnemonics in FRED followed by a short description. The comparable series in Global Insight is given in the column GSI.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">d_stationary</span> <span class="op">&lt;-</span> <span class="fu">transform_fred</span><span class="op">(</span><span class="va">d</span>, tcode <span class="op">=</span> <span class="va">tcodes</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Column 2, RPI. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 3, W875RX1. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 4, DPCERA3M086SBEA. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 5, CMRMTSPLx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 6, RETAILx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 7, INDPRO. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 8, IPFPNSS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 9, IPFINAL. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 10, IPCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 11, IPDCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 12, IPNCONGD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 13, IPBUSEQ. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 14, IPMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 15, IPDMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 16, IPNMAT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 17, IPMANSICS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 18, IPB51222S. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 19, IPFUELS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 20, CUMFNS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 21, HWI. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 22, HWIURATIO. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 23, CLF16OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 24, CE16OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 25, UNRATE. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 26, UEMPMEAN. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 27, UEMPLT5. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 28, UEMP5TO14. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 29, UEMP15OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 30, UEMP15T26. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 31, UEMP27OV. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 32, CLAIMSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 33, PAYEMS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 34, USGOOD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 35, CES1021000001. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 36, USCONS. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 37, MANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 38, DMANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 39, NDMANEMP. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 40, SRVPRD. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 41, USTPU. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 42, USWTRADE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 43, USTRADE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 44, USFIRE. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 45, USGOVT. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 46, CES0600000007. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 47, AWOTMAN. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 48, AWHMAN. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 49, HOUST. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 50, HOUSTNE. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 51, HOUSTMW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 52, HOUSTS. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 53, HOUSTW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 54, PERMIT. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 55, PERMITNE. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 56, PERMITMW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 57, PERMITS. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 58, PERMITW. Transformation 4 (log)</span></span>
+<span><span class="co">#&gt; Column 59, ACOGNO. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 60, AMDMNOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 61, ANDENOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 62, AMDMUOx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 63, BUSINVx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 64, ISRATIOx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 65, M1SL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 66, M2SL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 67, M2REAL. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 68, BOGMBASE. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 69, TOTRESNS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 70, NONBORRES. Transformation 7 (diffp)</span></span>
+<span><span class="co">#&gt; Column 71, BUSLOANS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 72, REALLN. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 73, NONREVSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 74, CONSPI. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 75, S.P.500. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 76, S.P..indust. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 77, S.P.div.yield. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 78, S.P.PE.ratio. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 79, FEDFUNDS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 80, CP3Mx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 81, TB3MS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 82, TB6MS. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 83, GS1. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 84, GS5. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 85, GS10. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 86, AAA. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 87, BAA. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 88, COMPAPFFx. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 89, TB3SMFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 90, TB6SMFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 91, T1YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 92, T5YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 93, T10YFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 94, AAAFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 95, BAAFFM. Transformation 1 (Identity)</span></span>
+<span><span class="co">#&gt; Column 96, TWEXAFEGSMTHx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 97, EXSZUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 98, EXJPUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 99, EXUSUKx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 100, EXCAUSx. Transformation 5 (logDiff)</span></span>
+<span><span class="co">#&gt; Column 101, WPSFD49207. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 102, WPSFD49502. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 103, WPSID61. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 104, WPSID62. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 105, OILPRICEx. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 106, PPICMM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 107, CPIAUCSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 108, CPIAPPSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 109, CPITRNSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 110, CPIMEDSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 111, CUSR0000SAC. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 112, CUSR0000SAD. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 113, CUSR0000SAS. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 114, CPIULFSL. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 115, CUSR0000SA0L2. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 116, CUSR0000SA0L5. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 117, PCEPI. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 118, DDURRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 119, DNDGRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 120, DSERRG3M086SBEA. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 121, CES0600000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 122, CES2000000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 123, CES3000000008. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 124, UMCSENTx. Transformation 2 (Diff)</span></span>
+<span><span class="co">#&gt; Column 125, DTCOLNVHFNM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 126, DTCTHFNM. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 127, INVEST. Transformation 6 (logDiff2)</span></span>
+<span><span class="co">#&gt; Column 128, VIXCLSx. Transformation 1 (Identity)</span></span>
+<span><span class="fu">plot_ts</span><span class="op">(</span><span class="va">d_stationary</span><span class="op">[</span>,<span class="va">target_variables</span><span class="op">]</span>, date <span class="op">=</span> <span class="va">d_stationary</span><span class="op">[</span>,<span class="fl">1</span><span class="op">]</span>, n_row <span class="op">=</span> <span class="fl">5</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: Removed 3 row(s) containing missing values</span></span>
+<span><span class="co">#&gt; (geom_path).</span></span></code></pre></div>
+<div class="inline-figure"><img src="book_files/figure-html/transformation-1.png" width="672"></div>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\n"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">d_stationary</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span><span class="op">)</span>, <span class="st">"missing values have been introduced"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt;  215 missing values have been introduced</span></span>
+<span><span class="fu">count_missing</span><span class="op">(</span><span class="va">d_stationary</span><span class="op">[</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">d_stationary</span><span class="op">)</span><span class="op">)</span>,<span class="op">]</span><span class="op">)</span></span></code></pre></div>
+<div class="inline-figure"><img src="book_files/figure-html/unnamed-chunk-13-1.png" width="672"></div>
+</div>
+  <div class="chapter-nav">
+<div class="prev"><a href="loading-the-data-and-first-inspection.html"><span class="header-section-number">2</span> Loading the data and first inspection</a></div>
+<div class="next"><a href="imputation.html"><span class="header-section-number">4</span> 2) Imputation</a></div>
+</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
+      <ul class="nav navbar-nav"><li><a class="nav-link" href="#transformation"><span class="header-section-number">3</span> 1) Transformation</a></li></ul>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          
+        </ul>
+</div>
+    </nav>
+</div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>Forecast evaluation pipeline</strong>" was written by Alessandro Ciancetta. It was last built on 2023-04-27.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer><!-- dynamically load mathjax for compatibility with self-contained --><script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script><script type="text/x-mathjax-config">const popovers = document.querySelectorAll('a.footnote-ref[data-toggle="popover"]');
+for (let popover of popovers) {
+  const div = document.createElement('div');
+  div.setAttribute('style', 'position: absolute; top: 0, left:0; width:0, height:0, overflow: hidden; visibility: hidden;');
+  div.innerHTML = popover.getAttribute('data-content');
+
+  var has_math = div.querySelector("span.math");
+  if (has_math) {
+    document.body.appendChild(div);
+    MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+    MathJax.Hub.Queue(function() {
+      popover.setAttribute('data-content', div.innerHTML);
+      document.body.removeChild(div);
+    })
+  }
+}
+</script>
+</body>
+</html>

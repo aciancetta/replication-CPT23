@@ -1,0 +1,9 @@
+book_filename: "Thesis BSE"
+new_session: false
+before_chapter_script: _common.R
+delete_merged_file: true
+language:
+  ui:
+    chapter_name: "Chapter "
+rmd_files: ["index.Rmd", "../data_preparation.Rmd", "../forecast_evaluation.Rmd"]
+

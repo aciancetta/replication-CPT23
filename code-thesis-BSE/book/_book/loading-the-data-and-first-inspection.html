@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Chapter 2 Loading the data and first inspection | Forecast evaluation pipeline</title>
+<meta name="author" content="Alessandro Ciancetta">
+<meta name="description" content='fredmd &lt;- read.csv("data/current.csv") ## The first row contains the transformation codes d &lt;- as_tibble(fredmd[-1,]) tcodes &lt;- unlist(fredmd[1,-1]) ## Codes for transformations in Mc Cracken and...'>
+<meta name="generator" content="bookdown 0.33 with bs4_book()">
+<meta property="og:title" content="Chapter 2 Loading the data and first inspection | Forecast evaluation pipeline">
+<meta property="og:type" content="book">
+<meta property="og:description" content='fredmd &lt;- read.csv("data/current.csv") ## The first row contains the transformation codes d &lt;- as_tibble(fredmd[-1,]) tcodes &lt;- unlist(fredmd[1,-1]) ## Codes for transformations in Mc Cracken and...'>
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chapter 2 Loading the data and first inspection | Forecast evaluation pipeline">
+<meta name="twitter:description" content='fredmd &lt;- read.csv("data/current.csv") ## The first row contains the transformation codes d &lt;- as_tibble(fredmd[-1,]) tcodes &lt;- unlist(fredmd[1,-1]) ## Codes for transformations in Mc Cracken and...'>
+<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
+<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.4.0/transition.js"></script><script src="libs/bs3compat-0.4.0/tabs.js"></script><script src="libs/bs3compat-0.4.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
+<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="libs/kePrint-0.0.1/kePrint.js"></script><link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">Forecast evaluation pipeline</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+</form>
+
+      <nav aria-label="Table of contents"><h2>Table of contents</h2>
+        <ul class="book-toc list-unstyled">
+<li><a class="" href="index.html"><span class="header-section-number">1</span> About</a></li>
+<li><a class="active" href="loading-the-data-and-first-inspection.html"><span class="header-section-number">2</span> Loading the data and first inspection</a></li>
+<li><a class="" href="transformation.html"><span class="header-section-number">3</span> 1) Transformation</a></li>
+<li><a class="" href="imputation.html"><span class="header-section-number">4</span> 2) Imputation</a></li>
+<li><a class="" href="pipeline-function.html"><span class="header-section-number">5</span> Pipeline function</a></li>
+</ul>
+
+        <div class="book-extra">
+          
+        </div>
+      </nav>
+</div>
+  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="loading-the-data-and-first-inspection" class="section level1" number="2">
+<h1>
+<span class="header-section-number">2</span> Loading the data and first inspection<a class="anchor" aria-label="anchor" href="#loading-the-data-and-first-inspection"><i class="fas fa-link"></i></a>
+</h1>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">fredmd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html">read.csv</a></span><span class="op">(</span><span class="st">"data/current.csv"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co">## The first row contains the transformation codes</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html">as_tibble</a></span><span class="op">(</span><span class="va">fredmd</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span>,<span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">tcodes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/unlist.html">unlist</a></span><span class="op">(</span><span class="va">fredmd</span><span class="op">[</span><span class="fl">1</span>,<span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Codes for transformations in Mc Cracken and Ng 2015</span></span>
+<span><span class="va">fredmd</span><span class="op">[</span><span class="fl">1</span>,<span class="op">]</span></span>
+<span><span class="co">#&gt;      sasdate RPI W875RX1 DPCERA3M086SBEA CMRMTSPLx RETAILx</span></span>
+<span><span class="co">#&gt; 1 Transform:   5       5               5         5       5</span></span>
+<span><span class="co">#&gt;   INDPRO IPFPNSS IPFINAL IPCONGD IPDCONGD IPNCONGD IPBUSEQ</span></span>
+<span><span class="co">#&gt; 1      5       5       5       5        5        5       5</span></span>
+<span><span class="co">#&gt;   IPMAT IPDMAT IPNMAT IPMANSICS IPB51222S IPFUELS CUMFNS</span></span>
+<span><span class="co">#&gt; 1     5      5      5         5         5       5      2</span></span>
+<span><span class="co">#&gt;   HWI HWIURATIO CLF16OV CE16OV UNRATE UEMPMEAN UEMPLT5</span></span>
+<span><span class="co">#&gt; 1   2         2       5      5      2        2       5</span></span>
+<span><span class="co">#&gt;   UEMP5TO14 UEMP15OV UEMP15T26 UEMP27OV CLAIMSx PAYEMS</span></span>
+<span><span class="co">#&gt; 1         5        5         5        5       5      5</span></span>
+<span><span class="co">#&gt;   USGOOD CES1021000001 USCONS MANEMP DMANEMP NDMANEMP</span></span>
+<span><span class="co">#&gt; 1      5             5      5      5       5        5</span></span>
+<span><span class="co">#&gt;   SRVPRD USTPU USWTRADE USTRADE USFIRE USGOVT CES0600000007</span></span>
+<span><span class="co">#&gt; 1      5     5        5       5      5      5             1</span></span>
+<span><span class="co">#&gt;   AWOTMAN AWHMAN HOUST HOUSTNE HOUSTMW HOUSTS HOUSTW PERMIT</span></span>
+<span><span class="co">#&gt; 1       2      1     4       4       4      4      4      4</span></span>
+<span><span class="co">#&gt;   PERMITNE PERMITMW PERMITS PERMITW ACOGNO AMDMNOx ANDENOx</span></span>
+<span><span class="co">#&gt; 1        4        4       4       4      5       5       5</span></span>
+<span><span class="co">#&gt;   AMDMUOx BUSINVx ISRATIOx M1SL M2SL M2REAL BOGMBASE</span></span>
+<span><span class="co">#&gt; 1       5       5        2    6    6      5        6</span></span>
+<span><span class="co">#&gt;   TOTRESNS NONBORRES BUSLOANS REALLN NONREVSL CONSPI</span></span>
+<span><span class="co">#&gt; 1        6         7        6      6        6      2</span></span>
+<span><span class="co">#&gt;   S.P.500 S.P..indust S.P.div.yield S.P.PE.ratio FEDFUNDS</span></span>
+<span><span class="co">#&gt; 1       5           5             2            5        2</span></span>
+<span><span class="co">#&gt;   CP3Mx TB3MS TB6MS GS1 GS5 GS10 AAA BAA COMPAPFFx TB3SMFFM</span></span>
+<span><span class="co">#&gt; 1     2     2     2   2   2    2   2   2         1        1</span></span>
+<span><span class="co">#&gt;   TB6SMFFM T1YFFM T5YFFM T10YFFM AAAFFM BAAFFM</span></span>
+<span><span class="co">#&gt; 1        1      1      1       1      1      1</span></span>
+<span><span class="co">#&gt;   TWEXAFEGSMTHx EXSZUSx EXJPUSx EXUSUKx EXCAUSx WPSFD49207</span></span>
+<span><span class="co">#&gt; 1             5       5       5       5       5          6</span></span>
+<span><span class="co">#&gt;   WPSFD49502 WPSID61 WPSID62 OILPRICEx PPICMM CPIAUCSL</span></span>
+<span><span class="co">#&gt; 1          6       6       6         6      6        6</span></span>
+<span><span class="co">#&gt;   CPIAPPSL CPITRNSL CPIMEDSL CUSR0000SAC CUSR0000SAD</span></span>
+<span><span class="co">#&gt; 1        6        6        6           6           6</span></span>
+<span><span class="co">#&gt;   CUSR0000SAS CPIULFSL CUSR0000SA0L2 CUSR0000SA0L5 PCEPI</span></span>
+<span><span class="co">#&gt; 1           6        6             6             6     6</span></span>
+<span><span class="co">#&gt;   DDURRG3M086SBEA DNDGRG3M086SBEA DSERRG3M086SBEA</span></span>
+<span><span class="co">#&gt; 1               6               6               6</span></span>
+<span><span class="co">#&gt;   CES0600000008 CES2000000008 CES3000000008 UMCSENTx</span></span>
+<span><span class="co">#&gt; 1             6             6             6        2</span></span>
+<span><span class="co">#&gt;   DTCOLNVHFNM DTCTHFNM INVEST VIXCLSx</span></span>
+<span><span class="co">#&gt; 1           6        6      6       1</span></span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Variables</span></span>
+<span><span class="va">var_names</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/names.html">names</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="va">var_names</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   [1] "RPI"             "W875RX1"         "DPCERA3M086SBEA"</span></span>
+<span><span class="co">#&gt;   [4] "CMRMTSPLx"       "RETAILx"         "INDPRO"         </span></span>
+<span><span class="co">#&gt;   [7] "IPFPNSS"         "IPFINAL"         "IPCONGD"        </span></span>
+<span><span class="co">#&gt;  [10] "IPDCONGD"        "IPNCONGD"        "IPBUSEQ"        </span></span>
+<span><span class="co">#&gt;  [13] "IPMAT"           "IPDMAT"          "IPNMAT"         </span></span>
+<span><span class="co">#&gt;  [16] "IPMANSICS"       "IPB51222S"       "IPFUELS"        </span></span>
+<span><span class="co">#&gt;  [19] "CUMFNS"          "HWI"             "HWIURATIO"      </span></span>
+<span><span class="co">#&gt;  [22] "CLF16OV"         "CE16OV"          "UNRATE"         </span></span>
+<span><span class="co">#&gt;  [25] "UEMPMEAN"        "UEMPLT5"         "UEMP5TO14"      </span></span>
+<span><span class="co">#&gt;  [28] "UEMP15OV"        "UEMP15T26"       "UEMP27OV"       </span></span>
+<span><span class="co">#&gt;  [31] "CLAIMSx"         "PAYEMS"          "USGOOD"         </span></span>
+<span><span class="co">#&gt;  [34] "CES1021000001"   "USCONS"          "MANEMP"         </span></span>
+<span><span class="co">#&gt;  [37] "DMANEMP"         "NDMANEMP"        "SRVPRD"         </span></span>
+<span><span class="co">#&gt;  [40] "USTPU"           "USWTRADE"        "USTRADE"        </span></span>
+<span><span class="co">#&gt;  [43] "USFIRE"          "USGOVT"          "CES0600000007"  </span></span>
+<span><span class="co">#&gt;  [46] "AWOTMAN"         "AWHMAN"          "HOUST"          </span></span>
+<span><span class="co">#&gt;  [49] "HOUSTNE"         "HOUSTMW"         "HOUSTS"         </span></span>
+<span><span class="co">#&gt;  [52] "HOUSTW"          "PERMIT"          "PERMITNE"       </span></span>
+<span><span class="co">#&gt;  [55] "PERMITMW"        "PERMITS"         "PERMITW"        </span></span>
+<span><span class="co">#&gt;  [58] "ACOGNO"          "AMDMNOx"         "ANDENOx"        </span></span>
+<span><span class="co">#&gt;  [61] "AMDMUOx"         "BUSINVx"         "ISRATIOx"       </span></span>
+<span><span class="co">#&gt;  [64] "M1SL"            "M2SL"            "M2REAL"         </span></span>
+<span><span class="co">#&gt;  [67] "BOGMBASE"        "TOTRESNS"        "NONBORRES"      </span></span>
+<span><span class="co">#&gt;  [70] "BUSLOANS"        "REALLN"          "NONREVSL"       </span></span>
+<span><span class="co">#&gt;  [73] "CONSPI"          "S.P.500"         "S.P..indust"    </span></span>
+<span><span class="co">#&gt;  [76] "S.P.div.yield"   "S.P.PE.ratio"    "FEDFUNDS"       </span></span>
+<span><span class="co">#&gt;  [79] "CP3Mx"           "TB3MS"           "TB6MS"          </span></span>
+<span><span class="co">#&gt;  [82] "GS1"             "GS5"             "GS10"           </span></span>
+<span><span class="co">#&gt;  [85] "AAA"             "BAA"             "COMPAPFFx"      </span></span>
+<span><span class="co">#&gt;  [88] "TB3SMFFM"        "TB6SMFFM"        "T1YFFM"         </span></span>
+<span><span class="co">#&gt;  [91] "T5YFFM"          "T10YFFM"         "AAAFFM"         </span></span>
+<span><span class="co">#&gt;  [94] "BAAFFM"          "TWEXAFEGSMTHx"   "EXSZUSx"        </span></span>
+<span><span class="co">#&gt;  [97] "EXJPUSx"         "EXUSUKx"         "EXCAUSx"        </span></span>
+<span><span class="co">#&gt; [100] "WPSFD49207"      "WPSFD49502"      "WPSID61"        </span></span>
+<span><span class="co">#&gt; [103] "WPSID62"         "OILPRICEx"       "PPICMM"         </span></span>
+<span><span class="co">#&gt; [106] "CPIAUCSL"        "CPIAPPSL"        "CPITRNSL"       </span></span>
+<span><span class="co">#&gt; [109] "CPIMEDSL"        "CUSR0000SAC"     "CUSR0000SAD"    </span></span>
+<span><span class="co">#&gt; [112] "CUSR0000SAS"     "CPIULFSL"        "CUSR0000SA0L2"  </span></span>
+<span><span class="co">#&gt; [115] "CUSR0000SA0L5"   "PCEPI"           "DDURRG3M086SBEA"</span></span>
+<span><span class="co">#&gt; [118] "DNDGRG3M086SBEA" "DSERRG3M086SBEA" "CES0600000008"  </span></span>
+<span><span class="co">#&gt; [121] "CES2000000008"   "CES3000000008"   "UMCSENTx"       </span></span>
+<span><span class="co">#&gt; [124] "DTCOLNVHFNM"     "DTCTHFNM"        "INVEST"         </span></span>
+<span><span class="co">#&gt; [127] "VIXCLSx"</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/print.html">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">ncol</a></span><span class="op">(</span><span class="va">d</span><span class="op">[</span>,<span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 127</span></span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html">cat</a></span><span class="op">(</span><span class="st">"\nThe last observation is missing for"</span>, <span class="fu"><a href="https://rdrr.io/r/base/sum.html">sum</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html">is.na</a></span><span class="op">(</span><span class="va">d</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>,<span class="op">]</span><span class="op">)</span><span class="op">)</span>, <span class="st">"variables"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; The last observation is missing for 127 variables</span></span>
+<span></span>
+<span><span class="fu">count_missing</span><span class="op">(</span><span class="va">d</span><span class="op">[</span><span class="op">-</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html">nrow</a></span><span class="op">(</span><span class="va">d</span><span class="op">)</span>,<span class="op">]</span><span class="op">)</span></span></code></pre></div>
+<div class="inline-figure"><img src="book_files/figure-html/unnamed-chunk-10-1.png" width="672"></div>
+<p><em>COMMENTS ABOUT THE SERIES WITH MORE MISSING VALUES</em></p>
+<div id="policy-relevant-variables" class="section level2" number="2.1">
+<h2>
+<span class="header-section-number">2.1</span> Policy-relevant variables<a class="anchor" aria-label="anchor" href="#policy-relevant-variables"><i class="fas fa-link"></i></a>
+</h2>
+<p>Following Kim and Swanson (2010) we consider the 10 key variables reported in the table below. The table also reports 6 policy-relevant variables mentioned in that paper.</p>
+<div class="inline-table"><table class="table table-sm">
+<colgroup>
+<col width="41%">
+<col width="58%">
+</colgroup>
+<thead><tr class="header">
+<th>Variable</th>
+<th>Description</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>UNRATE</td>
+<td>Unemployment rate</td>
+</tr>
+<tr class="even">
+<td>W875RX1</td>
+<td>Real personal income ex transfer receipts</td>
+</tr>
+<tr class="odd">
+<td>GS10</td>
+<td>10-Year Treasury Rate</td>
+</tr>
+<tr class="even">
+<td>CPIAUCSL</td>
+<td>Consumer price index (all items)</td>
+</tr>
+<tr class="odd">
+<td>WPSFD49207</td>
+<td>Producer Price Index (Finished goods)</td>
+</tr>
+<tr class="even">
+<td>PAYEMS</td>
+<td>All Employees (total monfarm)</td>
+</tr>
+<tr class="odd">
+<td>HOUST</td>
+<td>Housing Starts (Total New Privately Owned)</td>
+</tr>
+<tr class="even">
+<td>INDPRO</td>
+<td>Industrial production</td>
+</tr>
+<tr class="odd">
+<td>M2SL</td>
+<td>M2 Money Stock</td>
+</tr>
+<tr class="even">
+<td>S.P.500</td>
+<td>S&amp;P500 Common Stock Price Index: Composite</td>
+</tr>
+<tr class="odd">
+<td>—–</td>
+<td>—–</td>
+</tr>
+<tr class="even">
+<td>RETAILx</td>
+<td>Retail and Food Services Sales</td>
+</tr>
+<tr class="odd">
+<td>ISRATIOx</td>
+<td>Total Business: Inventories to Sales Ratio</td>
+</tr>
+<tr class="even">
+<td>AMDMNOx</td>
+<td>New Orders for Durable Goods</td>
+</tr>
+<tr class="odd">
+<td>AMDMUOx</td>
+<td>Unfilled Orders for Durable Goods</td>
+</tr>
+<tr class="even">
+<td>NAPMNOI</td>
+<td>ISM : New Orders Index (aka purchasing managers’ index (PMI))</td>
+</tr>
+<tr class="odd">
+<td>NAPMII</td>
+<td>ISM : Inventories Index</td>
+</tr>
+<tr class="even">
+<td>—–</td>
+<td>—–</td>
+</tr>
+<tr class="odd">
+<td>GNP not available at quarterly frequency</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Remark</em>: the series PPIFGS (Producer price index of finished goods) has been discontinued from the 2016-03 vintage. The new varaible for the PPI index of finished goods is WPSFD49207.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">target_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"UNRATE"</span>, <span class="st">"W875RX1"</span>, <span class="st">"GS10"</span>, <span class="st">"CPIAUCSL"</span>, <span class="st">"WPSFD49207"</span>, <span class="st">"PAYEMS"</span>, <span class="st">"HOUST"</span>, <span class="st">"INDPRO"</span>, <span class="st">"M2SL"</span>, <span class="st">"S.P.500"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">extra_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"RETAILx"</span>, <span class="st">"ISRATIOx"</span>, <span class="st">"AMDMNOx"</span>, <span class="st">"AMDMUOx"</span>, <span class="st">"NAPMNOI"</span>, <span class="st">"NAPMII"</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+  <div class="chapter-nav">
+<div class="prev"><a href="index.html"><span class="header-section-number">1</span> About</a></div>
+<div class="next"><a href="transformation.html"><span class="header-section-number">3</span> 1) Transformation</a></div>
+</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
+      <ul class="nav navbar-nav">
+<li><a class="nav-link" href="#loading-the-data-and-first-inspection"><span class="header-section-number">2</span> Loading the data and first inspection</a></li>
+<li><a class="nav-link" href="#policy-relevant-variables"><span class="header-section-number">2.1</span> Policy-relevant variables</a></li>
+</ul>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          
+        </ul>
+</div>
+    </nav>
+</div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>Forecast evaluation pipeline</strong>" was written by Alessandro Ciancetta. It was last built on 2023-04-27.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer><!-- dynamically load mathjax for compatibility with self-contained --><script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script><script type="text/x-mathjax-config">const popovers = document.querySelectorAll('a.footnote-ref[data-toggle="popover"]');
+for (let popover of popovers) {
+  const div = document.createElement('div');
+  div.setAttribute('style', 'position: absolute; top: 0, left:0; width:0, height:0, overflow: hidden; visibility: hidden;');
+  div.innerHTML = popover.getAttribute('data-content');
+
+  var has_math = div.querySelector("span.math");
+  if (has_math) {
+    document.body.appendChild(div);
+    MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+    MathJax.Hub.Queue(function() {
+      popover.setAttribute('data-content', div.innerHTML);
+      document.body.removeChild(div);
+    })
+  }
+}
+</script>
+</body>
+</html>

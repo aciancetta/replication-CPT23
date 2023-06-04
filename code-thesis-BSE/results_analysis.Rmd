@@ -1,0 +1,596 @@
+---
+title: "Forecast evaluation pipeline"
+author: "Alessandro Ciancetta"
+date: '2023-04-27'
+output: html_document
+params: 
+  eval: FALSE
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "rendered_notebooks") })
+---
+
+# Forecast evaluation
+
+```{r message=FALSE, warning=FALSE, results = "hide", include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(gridExtra)
+library(kableExtra)
+```
+
+
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+## Load code from script folders
+preprocessing_scripts_env <- new.env()    
+file.sources = list.files(paste0(getwd(), "/sourcecode"),
+                          pattern=".R$", full.names=TRUE, 
+                          ignore.case=TRUE, recursive = TRUE)
+sapply(file.sources, source, preprocessing_scripts_env)
+attach(preprocessing_scripts_env, name="sourced_scripts")
+```
+
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+## Load data
+fredmd <- read.csv("data/current.csv")
+target_variables <- c("UNRATE", "W875RX1", "GS10", "CPIAUCSL", "WPSFD49207", "PAYEMS", "HOUST", "INDPRO", "M2SL", "S.P.500")
+```
+
+We evaluate the forecasting performances of different models using a rolling-window approach. 
+
+|   |  |
+------------|-----------------|
+| Initial training period | 1/1/1959 -- 12/1/2014 |
+|  Tested period | 1/1/2015 -- 1/1/2023 |
+
+
+```{r}
+# fredmd$sasdate[c(1+1, 649, 650, 770)]
+# window_size = 648
+fredmd$sasdate[c(1+1, 673, 674, 770)]
+window_size = 672
+
+```
+## Setup
+
+```{r}
+## Setup evaluation
+horizon <- 1         # forecast horizon
+pseudo <- TRUE       # pseudo real time
+window_size <- 672   # size of the rolling window
+
+## Set number of cores for parallel execution
+num_cores <- parallel::detectCores() - 1
+## String summarising evaluation setup
+setup_name <- paste0("_horizon", horizon, "_windowsize", window_size, "_pseudo", as.character(pseudo))
+
+```
+
+## Results
+
+```{r eval=!params$eval, message=FALSE, warning=FALSE, include=FALSE}
+## Load results 
+ar1_res <- readRDS(paste0("results/ar1_benchmark", setup_name))
+pcr_res <- readRDS(paste0("results/pcr_reg", setup_name))
+lasso <- readRDS(paste0("results/lasso", setup_name))
+pcr_lasso <- readRDS(paste0("results/pcr_lasso", setup_name))
+diffusionmap_res <- readRDS(paste0("results/diffusion_map_reg", setup_name))
+pcrquadratic_res <- readRDS(paste0("results/pcr_quadratic_reg", setup_name))
+kernelquadratic_res <- readRDS(paste0("results/kernel_pcrpoly2", setup_name))
+kernelgauss_res <- readRDS(paste0("results/kernel_pcrgaussian0.001", setup_name))
+tvpcr50_res <- readRDS(paste0("results/tvpcr50", setup_name))
+tvpcr100_res <- readRDS(paste0("results/tvpcr100", setup_name))
+# tvpcr150_res <- readRDS(paste0("results/tvpcr150", setup_name))
+# tvpcr200_res <- readRDS(paste0("results/tvpcr200", setup_name))
+# tvpcr250_res <- readRDS(paste0("results/tvpcr250", setup_name))
+tvpcr_lasso_res <- readRDS(paste0("results/tvpcr_lasso", setup_name))
+# tvpcr_adalasso_res <- readRDS(paste0("results/tvpcr_adalasso", setup_name))
+tvpcr_ada_lasso_lasso_res <- readRDS(paste0("results/tvpcr_ada_lasso_lasso_res", setup_name))
+# tvpcr_adalassoBIC_res <- readRDS(paste0("results/tvpcr_adalassoBIC", setup_name))
+tvpcr_ridge_res <- readRDS(paste0("results/tvpcr_ridge", setup_name))
+# tvpcr_elasticnet_res <- readRDS(paste0("results/tvpcr_elasticnet", setup_name))
+rtsne_res <- readRDS(paste0("results/rtsne_reg", setup_name))
+lle_res <- readRDS(paste0("results/lle_reg", setup_name))
+isomap_res <- readRDS(paste0("results/isomap_reg", setup_name))
+d2fm_res <- readRDS(paste0("results/d2fm", setup_name))
+dfm_res <- readRDS(paste0("results/dfm", setup_name))
+## DFM without imputation requires: 1) to remove the last row (all NAs)
+##                                  2) to include again in the ground truth the outliers
+##                                  3) eventual values still missing are imputed to the mean
+##                                  4) errors are recomputed
+dfm_res_noimpute <- readRDS(paste0("results/dfm_noimpute", setup_name))
+dfm_res_noimpute[1:3] <- lapply(dfm_res_noimpute[1:3], function(x){x[-nrow(x),]})
+dfm_res_noimpute$ground_truth <- dfm_res_noimpute$ground_truth[,1] |> 
+  left_join(transform_fred(fredmd, tcode = fredmd[1,-1])) |> 
+  mutate(across(-sasdate, function(x){ifelse(is.na(x), rep(mean(x, na.rm = T), length(x)), x)}))            
+
+dfm_res_noimpute$forecast_errors[,-1] <- dfm_res_noimpute$forecasts[,-1] - dfm_res_noimpute$ground_truth[, target_variables]
+
+## sample mean
+sample_mean <- readRDS(paste0("results/sample_mean", setup_name))
+```
+
+\
+**Whole sample**
+
+```{r message=FALSE, warning=FALSE, results = "hide", echo=FALSE}
+## Benchmark results are automatically loaded if available for the correct 
+## horizon/window size/pseudo type in the 'results' folder
+rmse_table <- get_rmse_table(ar1_res, column_name = "AR(1)") |> 
+          left_join(get_rmse_table(dfm_res, column_name = "DFM"))|> 
+          left_join(get_rmse_table(dfm_res_noimpute, column_name = "DFM (no pre-imputation)")) |> 
+          left_join(get_rmse_table(diffusionmap_res, column_name = "Diffusion Map")) |> 
+          left_join(get_rmse_table(rtsne_res, column_name = "t-SNE")) |>
+          left_join(get_rmse_table(lle_res, column_name = "LLE")) |>
+          left_join(get_rmse_table(isomap_res, column_name = "ISOMAP")) |>
+          left_join(get_rmse_table(pcrquadratic_res, column_name = "Squared PCR")) |> 
+          left_join(get_rmse_table(kernelquadratic_res, column_name = "Kernel PCR (quadratic)")) |> 
+          left_join(get_rmse_table(kernelgauss_res, column_name = "Kernel PCR (Gaussian)")) |> 
+          left_join(get_rmse_table(tvpcr50_res, column_name = "TV-PCR (50 components)")) |> 
+          left_join(get_rmse_table(tvpcr100_res, column_name = "TV-PCR (100 components)")) |> 
+          # left_join(get_rmse_table(tvpcr150_res, column_name = "TV-PCR (150 components)")) |> 
+          # left_join(get_rmse_table(tvpcr250_res, column_name = "TV-PCR (250 components)")) |> 
+          left_join(get_rmse_table(tvpcr_lasso_res, column_name = "LASSO TV-PCR")) |> 
+          left_join(get_rmse_table(tvpcr_ada_lasso_lasso_res, column_name = "Adaptive LASSO TV-PCR")) |>
+          # left_join(get_rmse_table(tvpcr_adalassoBIC_res, column_name = "Regularized TV-PCR (Adaptive LASSO with BIC)")) |>
+          left_join(get_rmse_table(d2fm_res, column_name = "D2FM")) 
+```
+
+
+```{r echo=FALSE}
+## Print table
+rmse_table |> 
+  pivot_longer(-Variable, names_to= "Specification", values_to = "RMSE") |>
+  pivot_wider(names_from = "Variable", values_from = "RMSE") |> 
+  mutate(across(-Specification, ~cell_spec(.x, bold = if_else(as.numeric(str_sub(.x, 1, 6))==min(as.numeric(str_sub(.x, 1, 6))) & as.numeric(str_sub(.x, 1, 6)) < 1, TRUE, FALSE)))) |>
+  kable(
+    format = "latex",
+    caption = paste0("Relative RMSE for ",
+                     horizon, 
+                     "-step forecasts. Benchmark model: PCR. 
+                         Size of the rolling window: ",
+                     window_size, ". ",
+                     ifelse(pseudo, 
+                            "Pseudo real-time evaluation.",
+                            "Real-time evaluation."),
+                     "\nSignificance levels of the Diebold-Mariano test: 
+                         '\\*\\*\\*' p < 0.001, 
+                         '\\*\\*' p < 0.01,
+                         '\\*' p < 0.05,
+                         '.' p < 0.1"), 
+    digits = 4,
+    escape = FALSE) |> 
+  kable_classic()
+
+```
+
+
+
+\
+\
+**Pre-covid period**
+
+```{r message=FALSE, warning=FALSE, results = "hide", echo = FALSE}
+## Benchmark results are automatically loaded if available for the correct 
+## horizon/window size/pseudo type in the 'results' folder
+rmse_table_covid <- get_rmse_table_covid(ar1_res, column_name = "AR(1)") |> 
+          left_join(get_rmse_table_covid(dfm_res, column_name = "DFM"))|> 
+          left_join(get_rmse_table_covid(dfm_res_noimpute, column_name = "DFM (no pre-imputation)")) |> 
+          left_join(get_rmse_table_covid(diffusionmap_res, column_name = "Diffusion Map")) |> 
+          left_join(get_rmse_table_covid(rtsne_res, column_name = "t-SNE")) |>
+          left_join(get_rmse_table_covid(lle_res, column_name = "LLE")) |>
+          left_join(get_rmse_table_covid(isomap_res, column_name = "ISOMAP")) |>
+          left_join(get_rmse_table_covid(pcrquadratic_res, column_name = "Squared PCR")) |> 
+          left_join(get_rmse_table_covid(kernelquadratic_res, column_name = "Kernel PCR (quadratic)")) |> 
+          left_join(get_rmse_table_covid(kernelgauss_res, column_name = "Kernel PCR (Gaussian)")) |> 
+          left_join(get_rmse_table_covid(tvpcr50_res, column_name = "TV-PCR (50 components)")) |> 
+          left_join(get_rmse_table_covid(tvpcr100_res, column_name = "TV-PCR (100 components)")) |> 
+          # left_join(get_rmse_table_covid(tvpcr150_res, column_name = "TV-PCR (150 components)")) |> 
+          # left_join(get_rmse_table_covid(tvpcr250_res, column_name = "TV-PCR (250 components)")) |> 
+          left_join(get_rmse_table_covid(tvpcr_lasso_res, column_name = "LASSO TV-PCR")) |> 
+          left_join(get_rmse_table_covid(tvpcr_ada_lasso_lasso_res, column_name = "Adaptive LASSO TV-PCR")) |>
+          # left_join(get_rmse_table_covid(tvpcr_adalassoBIC_res, column_name = "Regularized TV-PCR (Adaptive LASSO with BIC)")) |>
+          left_join(get_rmse_table_covid(d2fm_res, column_name = "D2FM")) 
+```
+
+
+```{r echo=FALSE}
+## Print table
+rmse_table_covid |> 
+  pivot_longer(-Variable, names_to= "Specification", values_to = "RMSE") |>
+  pivot_wider(names_from = "Variable", values_from = "RMSE") |> 
+  mutate(across(-Specification, ~cell_spec(.x, bold = if_else(as.numeric(str_sub(.x, 1, 6))==min(as.numeric(str_sub(.x, 1, 6))) & as.numeric(str_sub(.x, 1, 6)) < 1, TRUE, FALSE)))) |>  
+  kable(format = "html", 
+        caption = paste0("Relative RMSE for ",
+                         horizon, 
+                         "-step forecasts. Benchmark model: PCR. 
+                         Size of the rolling window: ",
+                         window_size, ". ",
+                         ifelse(pseudo, 
+                                "Pseudo real-time evaluation.",
+                                "Real-time evaluation."),
+                         "\nSignificance levels of the Diebold-Mariano test: 
+                         '\\*\\*\\*' p < 0.001, 
+                         '\\*\\*' p < 0.01,
+                         '\\*' p < 0.05,
+                         '.' p < 0.1"), 
+        digits = 4,
+        escape = FALSE) |> 
+  kable_classic()
+```
+
+
+
+
+```{r include = FALSE}
+# Print tables for latex
+
+## covid
+rmse_table |> 
+  mutate(across(where(is.character), str_trim)) |> 
+  pivot_longer(-Variable, names_to= "Specification", values_to = "RMSE") |>
+  pivot_wider(names_from = "Variable", values_from = "RMSE") |> 
+  mutate(across(-Specification, ~cell_spec(.x, format = "latex", bold = if_else(as.numeric(str_sub(.x, 1, 6))==min(as.numeric(str_sub(.x, 1, 6))) & as.numeric(str_sub(.x, 1, 6)) < 1, TRUE, FALSE)))) |>
+  kable(
+    format = "latex", booktabs = TRUE, table.envir = "subtable",
+    caption = paste0("Relative RMSE for ",
+                     horizon, 
+                     "-step forecasts. Benchmark model: PCR. 
+                         Size of the rolling window: ",
+                     window_size, ". ",
+                     ifelse(pseudo, 
+                            "Pseudo real-time evaluation.",
+                            "Real-time evaluation."),
+                     " Significance levels refers to the one-sided Diebold-Mariano test of the superior forecasting ability over the benchmark."),
+    digits = 4,
+    escape = FALSE, 
+    linesep = c('', '', '\\addlinespace', '', '', '', '\\addlinespace', '', '', '\\addlinespace', '', '', '', '\\addlinespace')) |>
+  footnote(general = "`***' $p < 0.001$, 
+                         `**' $p < 0.01$,
+                         `*' $p < 0.05$,
+                         `.' $p < 0.1$",
+           footnote_as_chunk = TRUE,
+           threeparttable = TRUE,
+           general_title = "Note:",
+           escape = FALSE) |> 
+  kable_styling(latex_options="scale_down") #|> 
+  # writeLines(paste0('../latex-thesis-BSE/tab_fullsample_horizon',horizon,'.tex'))
+```
+
+
+```{r include = FALSE}
+## pre-covid
+rmse_table_covid |> 
+ mutate(across(where(is.character), str_trim)) |> 
+  pivot_longer(-Variable, names_to= "Specification", values_to = "RMSE") |>
+  pivot_wider(names_from = "Variable", values_from = "RMSE") |> 
+  mutate(across(-Specification, ~cell_spec(.x, format = "latex", bold = if_else(as.numeric(str_sub(.x, 1, 6))==min(as.numeric(str_sub(.x, 1, 6))) & as.numeric(str_sub(.x, 1, 6)) < 1, TRUE, FALSE)))) |>
+  kable(
+    format = "latex", booktabs = TRUE, table.envir = "subtable",
+    caption = paste0("Relative RMSE for ",
+                     horizon, 
+                     "-step forecasts. Benchmark model: PCR. 
+                         Size of the rolling window: ",
+                     window_size, ". ",
+                     ifelse(pseudo, 
+                            "Pseudo real-time evaluation.",
+                            "Real-time evaluation."),
+                     " Significance levels refers to the one-sided Diebold-Mariano test of the superior forecasting ability over the benchmark."),
+    digits = 4,
+    escape = FALSE, 
+    linesep = c('', '', '\\addlinespace', '', '', '', '\\addlinespace', '', '', '\\addlinespace', '', '', '', '\\addlinespace')) |>
+  footnote(general = "`***' $p < 0.001$, 
+                         `**' $p < 0.01$,
+                         `*' $p < 0.05$,
+                         `.' $p < 0.1$",
+           footnote_as_chunk = TRUE,
+           threeparttable = TRUE,
+           general_title = "Note:",
+           escape = FALSE) |> 
+  kable_styling(latex_options="scale_down")
+```
+
+
+
+
+## Cumulative errors
+
+```{r}
+## collect models
+models=list(pcr_res,lasso,pcr_lasso,diffusionmap_res,pcrquadratic_res,kernelquadratic_res,kernelgauss_res,tvpcr50_res,tvpcr_lasso_res,tvpcr_ada_lasso_lasso_res,tvpcr_ridge_res,rtsne_res,lle_res,isomap_res,dfm_res,d2fm_res)
+
+## models names
+model_names=c('pcr_res','lasso','pcr_lasso','diffusionmap_res','pcrquadratic_res','kernelquadratic_res','kernelgauss_res','tvpcr50_res','tvpcr_lasso_res','tvpcr_ada_lasso_lasso_res','tvpcr_ridge_res','rtsne_res','lle_res','isomap_res','dfm_res','d2fm_res')
+
+## targets
+target_1=c('INDPRO', 'HOUST','W875RX1')
+target_1b=c('INDPRO', 'HOUST')
+target_1c=c('INDPRO')
+
+target_2=c('UNRATE', 'PAYEMS')
+target_2b=c('UNRATE')
+
+target_3=c('CPIAUCSL', 'WPSFD49207')
+target_3b=c('CPIAUCSL')
+
+target_4=c('S.P.500', 'M2SL', 'GS10')
+target_4b=c('S.P.500')
+target_4c=c('M2SL')
+target_4d=c('GS10')
+
+
+## List plots
+plot_list <- list(indpro = cumulative_error_plot(models, model_names, target_1c),
+                  unrate = cumulative_error_plot(models, model_names, target_2b),
+                  cpiaucsl = cumulative_error_plot(models, model_names, target_3b),
+                  sp500 = cumulative_error_plot(models, model_names, target_4b))
+
+## print
+# library(grid)
+plot_cumulerrors <- grid.arrange(grobs = plot_list)
+
+ggsave(filename = paste0("../latex-thesis-BSE/plots/cumulerrors_horizon", horizon, ".png"),
+       plot = plot_cumulerrors, width = 10.5, height = 10.5)
+
+
+# grid.draw(cbind(ggplotGrob(plot_list[[1]]), ggplotGrob(plot_list[[2]]), size="last"))
+
+```
+
+
+
+
+
+
+
+
+
+
+## Lasso coefficients
+
+
+
+```{r}
+plot_tvpcr_components <- function(coeff_lasso, coeff_ada, title = "") {
+  
+  ## organize data
+  df <- data.frame(value_lasso = as.vector(coeff_lasso)[-1],
+                   value_ada = as.vector(coeff_ada)[-1],
+                   ind = seq_len(length(as.vector(coeff_ada)[-1]))) |> 
+    pivot_longer(-ind, names_to = "type", values_to = "value")
+  
+  ## plot
+  ggplot(df, aes(x = ind, y = value, fill = type)) +
+    geom_bar(stat = "identity" , width = 8, position = 'dodge') +
+    scale_fill_manual(labels = c("value_ada" = "Adaptive LASSO",
+                                 "value_lasso" = "LASSO"), 
+                      values = c("value_ada" = "black", "value_lasso" = "grey")) +
+    labs(title = title, 
+         x = "Components in TV-PCR", 
+         y = "Estimated coefficient",
+         fill = "") +
+      theme_bw() +
+      theme(#panel.grid.minor = element_blank(),
+            plot.title = element_text(hjust = 0.5, margin = margin(b = 5)),
+            # legend.key.size =  unit(.1, "cm"),
+            legend.key.width = unit(1, "cm"),
+            legend.key.height = unit(0.1, "cm"),
+            legend.text = element_text(size = 10),
+            legend.position = "bottom",
+            # legend.margin = margin(t = -5),
+            legend.spacing.y = unit(0, "cm"),
+            legend.spacing.x = unit(0.4, "cm"),
+            axis.title.y = element_text(margin = margin(r = 5))) +
+      guides(color = guide_legend(nrow=3,byrow=TRUE),
+             linetype = guide_legend(nrow=3, byrow=TRUE))
+}
+```
+
+
+```{r message=FALSE, warning=FALSE}
+plotlasso_list <- list()
+
+## plot
+coeff_lasso <- readRDS('components/coeff_ada_pre_INDPRO_h1')
+coeff_ada <- readRDS('components/coeff_lasso_pre_INDPRO_h3')
+plotlasso_list[[1]] <- plot_tvpcr_components(coeff_lasso, coeff_ada, 
+                      title = "INDPRO - Backcasting")
+## plot
+coeff_lasso <- readRDS('components/coeff_ada_pre_INDPRO_h3')
+coeff_ada <- readRDS('components/coeff_lasso_pre_INDPRO_h3')
+plotlasso_list[[2]] <- plot_tvpcr_components(coeff_lasso, coeff_ada, 
+                      title = "INDPRO - Nowcasting")
+## plot
+coeff_lasso <- readRDS('components/coeff_ada_pre_INDPRO_h4')
+coeff_ada <- readRDS('components/coeff_lasso_pre_INDPRO_h4')
+plotlasso_list[[3]] <- plot_tvpcr_components(coeff_lasso, coeff_ada, 
+                      title = "INDPRO - 1-month ahead forecasting")
+## plot
+coeff_lasso <- readRDS('components/coeff_ada_pre_INDPRO_h6')
+coeff_ada <- readRDS('components/coeff_lasso_pre_INDPRO_h6')
+plotlasso_list[[4]] <- plot_tvpcr_components(coeff_lasso, coeff_ada, 
+                      title = "INDPRO - 1-quarter ahead forecasting")
+
+```
+
+```{r}
+library(ggpubr)
+plot_lassocoeff <- ggarrange(plotlasso_list[[1]], plotlasso_list[[2]],
+                             plotlasso_list[[3]], plotlasso_list[[4]],
+                             ncol=2, nrow=2, common.legend = TRUE, legend="bottom")
+
+
+
+ggsave(filename = paste0("../latex-thesis-BSE/plots/plot_heatmap", ".png"),
+       plot = plot_heatmap, width = 10.5, height = 10.5)
+```
+
+
+
+## Correlation errors-predictors
+```{r}
+names_list <- c("pcr_res"                   = "PCR",
+      "lasso"                     = "LASSO",
+      "pcr_lasso"                 = "LASSO-PCR",
+      "diffusionmap_res"          = "Diffusion map",
+      "pcrquadratic_res"          = "Squared PCR",
+      "kernelquadratic_res"       = "Quadratic KPCR",
+      "kernelgauss_res"           = "Gaussian KPCR",
+      "tvpcr50_res"               = "TV-PCR 50 components",
+      "tvpcr_lasso_res"           = "LASSO TV-PCR",
+      "tvpcr_ada_lasso_lasso_res" = "AdaLASSO TV-PCR",
+      "tvpcr_ridge_res"           = "Ridge TV-PCR",
+      "rtsne_res"                 = "t-SNE",
+      "lle_res"                   = "LLE",
+      "isomap_res"                = "ISOMAP",
+      "dfm_res"                   = "DFM",
+      "d2fm_res"                  = "D2FM")
+```
+
+
+
+```{r}
+setup_name="_horizon1_windowsize672_pseudoTRUE"
+horizon=1
+
+ar1_res <- readRDS(paste0("results/ar1_benchmark", setup_name))%>% get_covid_data()
+pcr_res <- readRDS(paste0("results/pcr_reg", setup_name))%>% get_covid_data()
+
+lasso <- readRDS(paste0("results/lasso", setup_name))%>% get_covid_data()
+lasso_pcr <- readRDS(paste0("results/pcr_lasso", setup_name))%>% get_covid_data()
+
+diffusionmap_res <- readRDS(paste0("results/diffusion_map_reg", setup_name))%>% get_covid_data()
+pcrquadratic_res <- readRDS(paste0("results/pcr_quadratic_reg", setup_name))%>% get_covid_data()
+kernelquadratic_res <- readRDS(paste0("results/kernel_pcrpoly2", setup_name))%>% get_covid_data()
+kernelgauss_res <- readRDS(paste0("results/kernel_pcrgaussian0.001", setup_name))%>% get_covid_data()
+tvpcr50_res <- readRDS(paste0("results/tvpcr50", setup_name))%>% get_covid_data()
+tvpcr100_res <- readRDS(paste0("results/tvpcr100", setup_name))%>% get_covid_data()
+# tvpcr150_res <- readRDS(paste0("results/tvpcr150", setup_name))
+# tvpcr200_res <- readRDS(paste0("results/tvpcr200", setup_name))
+# tvpcr250_res <- readRDS(paste0("results/tvpcr250", setup_name))
+tvpcr_lasso_res <- readRDS(paste0("results/tvpcr_lasso", setup_name))%>% get_covid_data()
+# tvpcr_adalasso_res <- readRDS(paste0("results/tvpcr_adalasso", setup_name))
+tvpcr_ada_lasso_lasso_res <- readRDS(paste0("results/tvpcr_ada_lasso_lasso_res", setup_name))%>% get_covid_data()
+# tvpcr_adalassoBIC_res <- readRDS(paste0("results/tvpcr_adalassoBIC", setup_name))
+tvpcr_ridge_res <- readRDS(paste0("results/tvpcr_ridge", setup_name))%>% get_covid_data()
+# tvpcr_elasticnet_res <- readRDS(paste0("results/tvpcr_elasticnet", setup_name))
+rtsne_res <- readRDS(paste0("results/rtsne_reg", setup_name))%>% get_covid_data()
+lle_res <- readRDS(paste0("results/lle_reg", setup_name))%>% get_covid_data()
+isomap_res <- readRDS(paste0("results/isomap_reg", setup_name))%>% get_covid_data()
+d2fm_res <- readRDS(paste0("results/d2fm", setup_name))%>% get_covid_data()
+dfm_res <- readRDS(paste0("results/dfm", setup_name))%>% get_covid_data()
+
+forecasters_name <- c("ar1", "pcr",'lasso','lasso_pcr', "diffusionmap","pcrquadratic",'kernelquadratic','kernelgauss','tvpcr50','tvpcr100','tvpcr_lasso','tvpcr_ada_lasso','tvpcr_ridge','rtsne','lle','isomap','d2fm','dfm') 
+
+# List to store 'forecast_errors' dataframes
+all_forecasts <- list()
+
+target_variables_all <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+#target_variables <- c("UNRATE", "CPIAUCSL", "INDPRO", "S.P.500")
+#target_variables <- c("UNRATE", "CPIAUCSL", "INDPRO")
+target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+indexes <- match(target_variables, target_variables_all)
+
+
+all_forecasts[[1]] <- ar1_res$forecast_errors
+all_forecasts[[2]] <- pcr_res$forecast_errors
+all_forecasts[[3]] <-lasso$forecast_errors
+all_forecasts[[4]] <-lasso_pcr$forecast_errors
+all_forecasts[[5]] <- diffusionmap_res$forecast_errors
+all_forecasts[[6]] <- pcrquadratic_res$forecast_errors
+all_forecasts[[7]] <- kernelquadratic_res$forecast_errors
+all_forecasts[[8]] <- kernelgauss_res$forecast_errors
+all_forecasts[[9]] <- tvpcr50_res$forecast_errors
+all_forecasts[[10]] <- tvpcr100_res$forecast_errors
+all_forecasts[[11]] <- tvpcr_lasso_res$forecast_errors
+all_forecasts[[12]] <- tvpcr_ada_lasso_lasso_res$forecast_errors
+all_forecasts[[13]] <- tvpcr_ridge_res$forecast_errors
+all_forecasts[[14]] <- lle_res$forecast_errors
+all_forecasts[[15]] <- lle_res$forecast_errors
+all_forecasts[[16]] <- isomap_res$forecast_errors
+all_forecasts[[17]] <- d2fm_res$forecast_errors
+all_forecasts[[18]] <- dfm_res$forecast_errors
+
+
+fredmd_before_covid <- fredmd[1:733,]
+d <- preprocess_fredmd(fredmd_before_covid)[,-1]
+d <- d[(672+horizon):732,]
+d_scaled <- scale(d)
+observedvariables <- d_scaled
+#observedvariables <- observedvariables[, !colnames(observedvariables) %in% target_variables]
+
+
+
+num_forecasts <- length(all_forecasts)
+
+# Number of observed variables
+num_observed_variables <- ncol(observedvariables)
+
+correlation_matrix <- matrix(nrow = num_observed_variables, ncol = num_forecasts * length(target_variables))
+
+
+# Loop over all target variables in all_forecasts
+                                           
+for(i in 1:num_forecasts){
+  w=1
+  for(j in indexes){
+    # Get target variable
+    target_variable <- all_forecasts[[i]][,j+1]
+    
+    # Loop over all observed variables
+    for(k in 1:ncol(observedvariables)){
+      # Get observed variable
+      observed_variable <- observedvariables[,k]
+      
+      # Compute correlation and store it in the matrix
+      correlation_matrix[k, (i-1)*length(target_variables)+w] <- abs(cor(target_variable, observed_variable))
+      
+    }
+    w=w+1
+  }
+}
+
+#colnames(correlation_matrix) <- rep(forecasters_name, each = 10)
+colnames(correlation_matrix) <- rep(paste0(rep(forecasters_name, each = length(target_variables)), "_", rep(1:length(target_variables), length(forecasters_name))), length(target_variables))[1:ncol(correlation_matrix)]
+rownames(correlation_matrix)=colnames(observedvariables)
+
+#heatmap(correlation_matrix,Rowv = NA, Colv =NA,scale = "none")
+
+library(reshape2)
+library(hrbrthemes)
+melted_cormat <- melt(correlation_matrix)
+
+
+
+n_cols <- length(unique(melted_cormat$Var2))
+
+# Create labels
+x_labels <- rep("", n_cols)
+x_labels[seq(5, n_cols, length(target_variables))[1:length(forecasters_name)]]<-forecasters_name
+```
+
+
+```{r}
+# Create the plot
+ggplot(data = melted_cormat, aes(x=Var2, y=Var1, fill=value)) + 
+  geom_tile() + 
+  scale_fill_gradient(low="white", high="steelblue") +
+  scale_x_discrete(labels = x_labels, breaks = unique(melted_cormat$Var2)) + 
+  theme_ipsum() +
+  theme(axis.text.y = element_text(size = 5)) +
+  theme(axis.text.x = element_text(size = 7)) +
+  geom_vline(xintercept = seq((length(target_variables)+0.5), n_cols-1, length(target_variables)), color = "black",size = 0.5)+
+  xlab("") +  # Empty x-axis label
+  ylab("")+
+  labs(title = "Horizon 3 - pre Covid")
+
+  
+
+
+
+```
+
+
+
+

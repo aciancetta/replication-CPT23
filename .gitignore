@@ -47,3 +47,6 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Principal components lists (2GB files)
+componentlist*.RDS

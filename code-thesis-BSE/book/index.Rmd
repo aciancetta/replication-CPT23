@@ -1,0 +1,46 @@
+--- 
+title: "A Minimal Book Example"
+author: "Alessandro Ciancetta"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+# url: your book url like https://bookdown.org/yihui/bookdown
+# cover-image: path to the social sharing image like images/cover.jpg
+description: |
+  Book reporting the main steps of the analysis carried out in the master thesis for the Barcelona School of Economics - Data Science Methodology program
+biblio-style: apalike
+csl: chicago-fullnote-bibliography.csl
+---
+
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '../')
+```
+
+
+# Time-Varying Principal Component Regression {-}
+
+## Forecasting Performances on FRED-MD {-}
+
+In this book, we report the main steps of the forecast evaluation procedure. The first chapter explains the preprocessing pipeline that we apply to the data at each step of the forecast evaluation. The second chapter reports the forecast-evaluation procedure for 10 policy-relevant variables in FRED-MD using different predictive algorithms.
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+library(tidyverse)
+library(lubridate)
+library(gridExtra)
+library(kableExtra)
+```
+
+
+```{r eval=FALSE, include = FALSE}
+bookdown::render_book()
+bookdown::serve_book()
+```
+
+
+```{r include=FALSE, eval = FALSE}
+# automatically create a bib database for R packages
+knitr::write_bib(c(
+  .packages(), 'bookdown', 'knitr', 'rmarkdown'
+), 'packages.bib')
+```

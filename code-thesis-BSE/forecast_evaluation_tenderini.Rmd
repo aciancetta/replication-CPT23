@@ -1,0 +1,1667 @@
+---
+title: "Forecast evaluation pipeline"
+author: "Alessandro Ciancetta"
+date: '2023-04-27'
+output: html_document
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "rendered_notebooks") })
+---
+
+# Forecast evaluation
+
+```{r message=FALSE, warning=FALSE, results = "hide", include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(gridExtra)
+library(kableExtra)
+```
+
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+## Load code from script folders
+preprocessing_scripts_env <- new.env()    
+file.sources = list.files(paste0(getwd(), "/sourcecode"),
+                          pattern=".R$", full.names=TRUE, 
+                          ignore.case=TRUE, recursive = TRUE)
+sapply(file.sources, source, preprocessing_scripts_env)
+attach(preprocessing_scripts_env, name="sourced_scripts")
+```
+
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+## Load data
+fredmd <- read.csv("data/current.csv")
+target_variables <- c("UNRATE", "W875RX1", "GS10", "CPIAUCSL", "WPSFD49207", "PAYEMS", "HOUST", "INDPRO", "M2SL", "S.P.500")
+```
+
+We evaluate the forecasting performances of different models using a rolling-window approach. 
+
+|   |  |
+------------|-----------------|
+| Initial training period | 1/1/1959 -- 12/1/2014 |
+|  Tested period | 1/1/2015 -- 1/1/2023 |
+
+
+```{r}
+# fredmd$sasdate[c(1+1, 649, 650, 770)]
+# window_size = 648
+fredmd$sasdate[c(1+1, 673, 674, 770)]
+window_size = 672
+##
+
+```
+
+All the results are compared to the RMSFE of a benchmark AR(1) model. 
+
+We evaluate the forecasting performances of different models using a rolling-window approach. 
+
+|   |  |
+------------|-----------------|
+| Initial training period | 1/1/1959 -- 12/1/2014 |
+|  Tested period | 1/1/2015 -- 1/1/2023 |
+
+```{r}
+## get sample data
+d_list <- get_data_list(fredmd, 672)
+d <- d_list[[1]][,-1] |> as.matrix()
+
+## BUG LIST
+
+#rtsne_reg
+rtsne_reg(d, "INDPRO", horizon = 1)
+rtsne_reg(d, "INDPRO", horizon = 3)
+
+#lle_reg
+lle_reg(d, "INDPRO", horizon = 1,n_components=4)   
+lle_reg(d, "INDPRO", horizon = 3,n_components=4)   
+  
+#isomap
+isomap_reg(d, "INDPRO", horizon = 1)
+isomap_reg(d, "INDPRO", horizon = 3)
+
+  
+## List of forecasters
+diffusion_map_reg(d, "INDPRO", horizon = 1)
+pcr_quadratic_reg(d, "INDPRO", horizon = 1)
+kernel_pcr(d, "INDPRO", horizon = 1, kernel = "poly")
+kernel_pcr(d, "INDPRO", horizon = 1, kernel = "gaussian")
+
+
+```
+
+
+
+```{r eval = FALSE}
+ar1_horizon1 <- forecast_evaluation_fredmd(forecaster = ar1_benchmark, 
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+```
+```{r eval = TRUE, include=FALSE}
+# ar1_filename <- paste0("results/ar1_horizon", ar1_horizon1$parameters$horizon,
+#                        "_windowsize", ar1_horizon1$parameters$window_size,
+#                        "_pseudo", as.character(ar1_horizon1$parameters$pseudo))
+# saveRDS(ar1_horizon1, file = ar1_filename)
+```
+
+
+## Evaluation of the models
+
+We consider the following models: Principal Component Regression (PCR), ... *ADD HERE THE MODELS* 
+
+```{r eval=FALSE}
+
+pcr_horizon1 <- forecast_evaluation_fredmd(forecaster = pcr_reg,
+                                           n_eig=4,
+                                           tune= TRUE,
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+```
+
+```{r eval=FALSE}
+lambda = 1:5
+b = 16:20
+z <- 4:7
+
+h <- expand.grid(lambda, b, z)
+```
+
+```{r eval = TRUE, include=FALSE}
+pcr_filename <- paste0("results/pcr_tuned_", pcr_horizon1$parameters$horizon,
+                        "_windowsize", pcr_horizon1$parameters$window_size,
+                        "_pseudo", as.character(pcr_horizon1$parameters$pseudo))
+saveRDS(pcr_horizon1, file = pcr_filename)
+pcr_horizon1 <- readRDS("results/pcr_horizon1_windowsize672_pseudoTRUE")
+```
+
+```{r}
+rtsne_reg <- forecast_evaluation_fredmd(forecaster = rtsne_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/rtsne_reg_", rtsne_reg$parameters$horizon,
+                   "_windowsize", rtsne_reg$parameters$window_size,
+                   "_pseudo", as.character(rtsne_reg$parameters$pseudo))
+saveRDS(rtsne_reg, file = filename)
+```
+
+```{r}
+lle_reg_4pc <- forecast_evaluation_fredmd(forecaster = lle_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/lle_reg_4pc_", lle_reg_4pc$parameters$horizon,
+                   "_windowsize", lle_reg_4pc$parameters$window_size,
+                   "_pseudo", as.character(lle_reg_4pc$parameters$pseudo))
+saveRDS(lle_reg_4pc, file = filename)
+```
+
+
+```{r}
+time_varying_pcr_penalized_ada_BIC <- forecast_evaluation_fredmd(forecaster = time_varying_pcr_penalized_ada_BIC, 
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables[4:6],
+                                           n_components=500,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+
+filename <- paste0("results/time_varying_PCR_ada_BIC_500_horizon_b_", time_varying_pcr_penalized_ada_BIC$parameters$horizon,
+                   "_windowsize", time_varying_pcr_penalized_ada_BIC$parameters$window_size,
+                   "_pseudo", as.character(time_varying_pcr_penalized_ada_BIC$parameters$pseudo))
+saveRDS(time_varying_pcr_penalized_ada_BIC, file = filename)
+```
+
+
+```{r}
+time_varying_PCR_horizon1_ada <- forecast_evaluation_fredmd(forecaster = time_varying_pcr_penalized_ada_CV, 
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables[1:2],
+                                           n_components=500,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+
+filename <- paste0("results/time_varying_PCR_ada_CV_500_horizon_a1_", time_varying_PCR_horizon1$parameters$horizon,
+                   "_windowsize", time_varying_PCR_horizon1$parameters$window_size,
+                   "_pseudo", as.character(time_varying_PCR_horizon1$parameters$pseudo))
+saveRDS(time_varying_PCR_horizon1_ada, file = filename)
+```
+
+```{r}
+time_varying_PCR_horizon1_ada2 <- forecast_evaluation_fredmd(forecaster = time_varying_pcr_penalized_ada_CV, 
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables[3],
+                                           n_components=500,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+
+filename <- paste0("results/time_varying_PCR_ada_CV_500_horizon_a1_", time_varying_PCR_horizon1_ada2$parameters$horizon,
+                   "_windowsize", time_varying_PCR_horizon1_ada2$parameters$window_size,
+                   "_pseudo", as.character(time_varying_PCR_horizon1_ada2$parameters$pseudo))
+saveRDS(time_varying_PCR_horizon1_ada2, file = filename)
+```
+
+```{r}
+
+#250 takes 03h 12m 11s  for 1 target for ada CV
+
+#500 takes   for 1 target for ada CV
+
+```
+
+
+
+```{r}
+time_varying_PCR_horizon1 <- forecast_evaluation_fredmd(forecaster = time_varying_pcr, 
+                                           horizon = 1,
+                                           fredmd=fredmd,
+                                           target = target_variables[1:3],
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+
+filename <- paste0("results/time_varying_pcr_50_", time_varying_PCR_horizon1$parameters$horizon,
+                   "_windowsize", time_varying_PCR_horizon1$parameters$window_size,
+                   "_pseudo", as.character(time_varying_PCR_horizon1$parameters$pseudo))
+#saveRDS(time_varying_PCR_horizon1, file = filename)d
+
+#filename <- paste0("results/time_varying_pcr_250_a", time_varying_PCR_horizon1$parameters$horizon,
+#                        "_windowsize", time_varying_PCR_horizon1$parameters$window_size,
+#                        "_pseudo", as.character(time_varying_PCR_horizon1$parameters$pseudo))
+#saveRDS(time_varying_PCR_horizon1, file = filename)
+
+```
+
+Time varying penalized
+
+```{r}
+time_varying_PCR_penalized_500_CV<- forecast_evaluation_fredmd(forecaster = time_varying_pcr_penalized_ada_CV, 
+                                           horizon = 1,
+                                           n_components=500,
+                                           compute_components=FALSE,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/time_varying_PCR_penalized_500_CV", time_varying_PCR_penalized_500_CV$parameters$horizon,
+                        "_windowsize", time_varying_PCR_penalized_500_CV$parameters$window_size,
+                        "_pseudo", as.character(time_varying_PCR_penalized_500_CV$parameters$pseudo))
+
+saveRDS(time_varying_PCR_penalized_500_CV, file = filename)
+
+
+```
+
+```{r}
+time_varying_PCR_penalized_500_BIC<- forecast_evaluation_fredmd(forecaster = time_varying_pcr_penalized,#time_varying_pcr_penalized_ada_BIC, 
+                                           horizon = 1,
+                                           n_components=500,
+                                           compute_components=FALSE,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/time_varying_PCR_penalized_500_BIC", time_varying_PCR_penalized_500_BIC$parameters$horizon,
+                        "_windowsize", time_varying_PCR_penalized_500_BIC$parameters$window_size,
+                        "_pseudo", as.character(time_varying_PCR_penalized_500_BIC$parameters$pseudo))
+
+saveRDS(time_varying_PCR_penalized_500_BIC, file = filename)
+
+
+```
+
+Now I modify the penalized time variant PCA
+```{r}
+time_var_b <- readRDS("results/time_varying_PCR_penalized_b_1_windowsize672_pseudoTRUE")
+time_var_c <- readRDS("results/time_varying_PCR_penalized_c_1_windowsize672_pseudoTRUE")
+time_var_a2 <- readRDS("results/time_varying_PCR_penalized_a2_3_1_windowsize672_pseudoTRUE")
+time_var_a1 <- readRDS("results/time_varying_PCR_penalized_a1_1_windowsize672_pseudoTRUE")
+
+
+
+d_list <- get_data_list(fredmd, window_size = 672)
+
+## Get dataset of means and standard deviations from each vintage
+mean_df <- lapply(d_list, function(d){d |> select(target_variables[4:6]) |> colMeans()}) |> bind_rows()
+sd_df   <- lapply(d_list, function(d){d |> select(target_variables[4:6]) |>  apply(2, sd)}) |> bind_rows() 
+
+## Rescale forecasts
+time_var_b$forecasts <- tibble(time_var_b$forecasts[,1], 
+                             time_var_b$forecasts[,-1] * sd_df[-nrow(sd_df),] + mean_df[-nrow(mean_df),])
+## Recompute forecast errors
+time_var_b$forecast_errors <- tibble(time_var_b$forecasts[,1], time_var_b$forecasts[,-1] - time_var_b$ground_truth[,-1])
+
+####################
+## Get dataset of means and standard deviations from each vintage
+mean_df <- lapply(d_list, function(d){d |> select(target_variables[7:10]) |> colMeans()}) |> bind_rows()
+sd_df   <- lapply(d_list, function(d){d |> select(target_variables[7:10]) |>  apply(2, sd)}) |> bind_rows() 
+
+## Rescale forecasts
+time_var_c$forecasts <- tibble(time_var_c$forecasts[,1], 
+                             time_var_c$forecasts[,-1] * sd_df[-nrow(sd_df),] + mean_df[-nrow(mean_df),])
+## Recompute forecast errors
+time_var_c$forecast_errors <- tibble(time_var_c$forecasts[,1], time_var_c$forecasts[,-1] - time_var_c$ground_truth[,-1])
+
+####################
+## Get dataset of means and standard deviations from each vintage
+mean_df <- lapply(d_list, function(d){d |> select(target_variables[1]) |> colMeans()}) |> bind_rows()
+sd_df   <- lapply(d_list, function(d){d |> select(target_variables[1]) |>  apply(2, sd)}) |> bind_rows() 
+
+## Rescale forecasts
+time_var_a1$forecasts <- tibble(time_var_a1$forecasts[,1], 
+                             time_var_a1$forecasts[,-1] * sd_df[-nrow(sd_df),] + mean_df[-nrow(mean_df),])
+## Recompute forecast errors
+time_var_a1$forecast_errors <- tibble(time_var_a1$forecasts[,1], time_var_a1$forecasts[,-1] - time_var_a1$ground_truth[,-1])
+
+#######################
+b=time_var_b
+c=time_var_c
+d=time_var_a2
+time_varying_PCR=time_var_a1
+
+
+```
+
+```{r}
+b$forecasts$sasdate=NULL
+b$ground_truth$sasdate=NULL
+b$forecast_errors$sasdate=NULL
+c$forecasts$sasdate=NULL
+c$ground_truth$sasdate=NULL
+c$forecast_errors$sasdate=NULL
+d$forecasts$sasdate=NULL
+d$ground_truth$sasdate=NULL
+d$forecast_errors$sasdate=NULL
+
+time_varying_PCR$forecasts=cbind(time_varying_PCR$forecasts,d$forecasts,b$forecasts,c$forecasts)
+time_varying_PCR$ground_truth=cbind(time_varying_PCR$ground_truth,d$ground_truth,b$ground_truth,c$ground_truth)
+time_varying_PCR$forecast_errors=cbind(time_varying_PCR$forecast_errors,d$forecast_errors,b$forecast_errors,c$forecast_errors)
+
+
+time_varying_PCR$forecasts=as_tibble(time_varying_PCR$forecasts)
+time_varying_PCR$ground_truth=as_tibble(time_varying_PCR$ground_truth)
+time_varying_PCR$forecast_errors=as_tibble(time_varying_PCR$forecast_errors)
+
+saveRDS(time_varying_PCR, file ='results/time_varying_PCR_penalized_1_windowsize672_pseudoTRUE')
+```
+
+```{r}
+time_varying_PCR_50<- readRDS("results/time_varying_pcr_50_1_windowsize672_pseudoTRUE")
+time_varying_PCR_100<- readRDS("results/time_varying_pcr_100_1_windowsize672_pseudoTRUE")
+time_varying_PCR_150<- readRDS("results/time_varying_pcr_150_1_windowsize672_pseudoTRUE")
+time_varying_PCR_250<- readRDS("results/time_varying_pcr_250_1_windowsize672_pseudoTRUE")
+time_varying_PCR_250_lasso<- readRDS("results/time_varying_PCR_penalized_1_windowsize672_pseudoTRUE")
+
+
+time_varying_PCR_500<-readRDS("results/time_varying_PCR_penalized_a1_500_1_windowsize672_pseudoTRUE")
+time_varying_PCR_500_lasso<-time_varying_PCR_250_lasso
+
+time_varying_PCR_500_lasso$forecasts$UNRATE=time_varying_PCR_500$forecasts$UNRATE
+time_varying_PCR_500_lasso$ground_truth$UNRATE=time_varying_PCR_500$ground_truth$UNRATE
+time_varying_PCR_500_lasso$forecast_errors$UNRATE=time_varying_PCR_500$forecast_errors$UNRATE
+time_varying_PCR_500_lasso$forecasts$W875RX1=time_varying_PCR_500$forecasts$W875RX1
+time_varying_PCR_500_lasso$ground_truth$W875RX1=time_varying_PCR_500$ground_truth$W875RX1
+time_varying_PCR_500_lasso$forecast_errors$W875RX1=time_varying_PCR_500$forecast_errors$W875RX1
+```
+
+
+```{r}
+diffusion_map<- forecast_evaluation_fredmd(forecaster = diffusion_map_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/diffusion_map_", diffusion_map$parameters$horizon,
+                   "_windowsize", diffusion_map$parameters$window_size,
+                   "_pseudo", as.character(diffusion_map$parameters$pseudo))
+saveRDS(diffusion_map, file = filename)
+```
+
+```{r}
+param_seq<- seq(15,25)
+
+rmse_vec <- rep(0, length(param_seq))
+
+for (i in 1:length(param_seq)) {
+  
+  diffusion_map<- forecast_evaluation_fredmd(forecaster = diffusion_map_reg, 
+                                           horizon = 1,
+                                           k=param_seq[i],
+                                           fredmd=fredmd,
+                                           target = 'PAYEMS',
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 1,
+                                           verbose = TRUE)
+  rmse_vec[i] <- sqrt(mean(diffusion_map$forecast_errors$PAYEMS^2))
+
+}
+  
+optimal_n_comp <- param_seq[which.min(rmse_vec)]
+#from 2 to 15 the best parameter is 15
+#from 15 to 25 the best parameter is 17
+
+diffusion_map<- forecast_evaluation_fredmd(forecaster = diffusion_map_reg, 
+                                           horizon = 1,
+                                           k=optimal_n_comp,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+filename <- paste0("results/diffusion_map_tuned_", diffusion_map$parameters$horizon,
+                   "_windowsize", diffusion_map$parameters$window_size,
+                   "_pseudo", as.character(diffusion_map$parameters$pseudo))
+saveRDS(diffusion_map, file = filename)
+```
+
+
+```{r}
+param_seq<- seq(2,10)
+
+rmse_vec <- rep(0, length(param_seq))
+
+for (i in 1:length(param_seq)) {
+  
+  lle<- forecast_evaluation_fredmd(forecaster = lle_reg, 
+                                           horizon = 1,
+                                           n_components=param_seq[i],
+                                           fredmd=fredmd,
+                                           target = 'PAYEMS',
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 1,
+                                           verbose = TRUE)
+  rmse_vec[i] <- sqrt(mean(lle$forecast_errors$PAYEMS^2))
+
+}
+  
+optimal_n_comp <- param_seq[which.min(rmse_vec)]
+#from 2 to 15 the best parameter is 15
+#from 15 to 25 the best parameter is 17
+
+lle<- forecast_evaluation_fredmd(forecaster = lle_reg, 
+                                           horizon = 1,
+                                           n_components=optimal_n_comp,
+                                           fredmd=fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+filename <- paste0("results/lle_tuned_", lle$parameters$horizon,
+                   "_windowsize", lle$parameters$window_size,
+                   "_pseudo", as.character(lle$parameters$pseudo))
+saveRDS(lle, file = filename)
+```
+
+
+```{r}
+pcr_quadratic_reg<- forecast_evaluation_fredmd(forecaster = pcr_quadratic_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)
+
+filename <- paste0("results/pcr_quadratic_", pcr_quadratic_reg$parameters$horizon,
+                   "_windowsize", pcr_quadratic_reg$parameters$window_size,
+                   "_pseudo", as.character(pcr_quadratic_reg$parameters$pseudo))
+saveRDS(pcr_quadratic_reg, file = filename)
+```
+
+```{r}
+kernel_poly_pcr_reg<- forecast_evaluation_fredmd(forecaster = kernel_poly_pcr_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE)  
+filename <- paste0("results/kernel_poly_pcr_", kernel_poly_pcr_reg$parameters$horizon,
+                   "_windowsize", kernel_poly_pcr_reg$parameters$window_size,
+                   "_pseudo", as.character(kernel_poly_pcr_reg$parameters$pseudo))
+saveRDS(kernel_poly_pcr_reg, file = filename)
+```
+
+
+
+```{r}
+kernel_gauss_pcr_reg<- forecast_evaluation_fredmd(forecaster = kernel_gauss_pcr_reg, 
+                                           horizon = 1,
+                                           fredmd,
+                                           target = target_variables,
+                                           window_size = 672,
+                                           pseudo = TRUE,
+                                           num_cores = 7,
+                                           verbose = TRUE) 
+filename <- paste0("results/kernel_gauss_pcr_", kernel_gauss_pcr_reg$parameters$horizon,
+                   "_windowsize", kernel_gauss_pcr_reg$parameters$window_size,
+                   "_pseudo", as.character(kernel_gauss_pcr_reg$parameters$pseudo))
+saveRDS(kernel_gauss_pcr_reg, file = filename)
+```
+
+
+## Results
+
+```{r warning=FALSE}
+## Benchmark results are automatically loaded if available for the correct 
+## horizon/window size/pseudo type in the 'results' folder
+
+
+rmse_table <- get_rmse_table(pcr_tuned, column_name = "PCR tuned")
+rmse_table <- get_rmse_table(ar1_horizon1, column_name = "AR(1)")
+rmse_table <- get_rmse_table(diffusion_map, column_name = "Diffusion Map_tuned")
+
+rmse_table <- get_rmse_table(diffusion_map, column_name = "Diffusion Map_tuned")
+rmse_table<-merge(rmse_table, get_rmse_table(diffusion_map2, column_name = "Diffusion Map"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(rtsne_reg, column_name = "RTSNE"), by = "Variable")
+
+
+rmse_table <- get_rmse_table(time_varying_PCR, column_name = "time_varying_PCR_penalized")
+rmse_table<-merge(rmse_table, get_rmse_table(rtsne_reg, column_name = "RTSNE"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(isomap, column_name = "ISOMAP"), by = "Variable")
+
+
+rmse_table <- get_rmse_table(time_varying_PCR_500_lasso, column_name = "time_varying_PCR_penalized_500")
+rmse_table<-merge(rmse_table, get_rmse_table(time_varying_PCR_250_lasso, column_name = "time_varying_PCR_penalized_250"), by = "Variable")
+
+
+#rmse_table<-merge(rmse_table, get_rmse_table(ar1_horizon1, column_name = "AR(1)"), by = "Variable")
+
+#rmse_table<-merge(rmse_table, get_rmse_table(diffusion_map, column_name = "Diffusion Map"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(pcr_quadratic_reg, column_name = "Quadratic PCA"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(kernel_poly_pcr_reg, column_name = "Kernel PCA - quadratic"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(kernel_gauss_pcr_reg, column_name = "Kernel PCA - gaussian"), by = "Variable")
+
+
+
+rmse_table<-merge(rmse_table, get_rmse_table(time_varying_PCR_50, column_name = "Time varying PCA - 50"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(time_varying_PCR_100, column_name = "Time varying PCA - 100"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(time_varying_PCR_150, column_name = "Time varying PCA - 150"), by = "Variable")
+rmse_table<-merge(rmse_table, get_rmse_table(time_varying_PCR_250, column_name = "Time varying PCA - 250"), by = "Variable")
+
+
+
+
+
+
+## ... then simply left_join the tables for the other models obtained using get_rmse_table() on the evaluation object
+```
+
+
+
+```{r}
+## Print table
+rmse_table |> 
+  kable(format = "html", 
+        caption = paste0("Relative RMSE for ",
+                         pcr_horizon1$parameters$horizon, 
+                         "-step forecasts. Benchmark model: PCR. 
+                         Size of the rolling window: ",
+                         pcr_horizon1$parameters$window_size, ". ",
+                         ifelse(pcr_horizon1$parameters$pseudo, 
+                                "Pseudo real-time evaluation.",
+                                "Real-time evaluation."),
+                         "\nSignificance levels of the Diebold-Mariano test: 
+                         '\\*\\*\\*' p < 0.001, 
+                         '\\*\\*' p < 0.01,
+                         '\\*' p < 0.05,
+                         '.' p < 0.1"), 
+        digits = 4) %>% 
+  # kable(format = "latex", digits = 4)
+  kable_classic()
+```
+
+```{r}
+#### COVID RESULTS
+
+covid_date=as.Date('2020-01-01')
+
+time_varying_PCR_50$forecast_errors=time_varying_PCR_50$forecasts[time_varying_PCR_50$forecasts$sasdate<covid_date,]
+time_varying_PCR_50$forecasts=time_varying_PCR_50$forecasts[time_varying_PCR_50$forecasts$sasdate<covid_date,]
+time_varying_PCR_50$ground_truth$sasdate <- as.Date(time_varying_PCR_50$ground_truth$sasdate, format = "%m/%d/%Y")
+time_varying_PCR_50$ground_truth=time_varying_PCR_50$ground_truth[time_varying_PCR_50$ground_truth$sasdate<covid_date,]
+
+get_rmse_table_covid(time_varying_PCR_50)
+get_covid_data(pcr_horizon1,'2020-01-01')
+```
+
+
+```{r}
+horizon=4
+aa=readRDS('results/pcr_reg_horizon4_windowsize672_pseudoTRUE')
+bb=readRDS('results/rtsne_reg_horizon4_windowsize672_pseudoTRUE')
+cc=readRDS('results/kernel_pcrpoly2_horizon4_windowsize672_pseudoTRUE')
+
+
+#aaC=get_covid_data(aa,date='2020-01-01')
+rmse_table<-get_rmse_table_covid(bb,column_name = "rtsn")
+rmse_table<-merge(rmse_table, get_rmse_table_covid(cc, column_name = "Kernel Poly"), by = "Variable")
+rmse_table
+```
+
+```{r}
+a=forecast_evaluation_fredmd(forecaster = tvpcr, 
+                                                      n_components = 100,
+                                                      horizon = 1,
+                                                      tuning = TRUE,
+                                                      regularization = "adaptive_lasso_BIC",
+                                                      fredmd = fredmd,
+                                                      target = target_variables[1],
+                                                      window_size = window_size,
+                                                      pseudo = pseudo,
+                                                      num_cores = 3,
+                                                      verbose = TRUE,
+                                                      load_components = TRUE)
+```
+
+
+
+
+###### RESULTS ANALYSIS
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+
+
+cumsumplot1<-function(model,model_name){
+  #scale(model$forecast_errors[,-1])
+  cumulative_errors <- apply(scale(model$forecast_errors[,-1])^2, 2, cumsum)
+  
+  # Create a new dataframe for plotting
+  plot_data <- data.frame(date = model$forecast_errors$sasdate, cumulative_errors)
+  
+  # Convert date column to Date type
+  plot_data$date <- as.Date(plot_data$date)
+  
+  # Reshape the data to long format for ggplot
+  plot_data_long <- tidyr::pivot_longer(plot_data, -date, names_to = "Column", values_to = "Cumulative_Sum")
+  
+  # Plot using ggplot
+  ggplot(plot_data_long, aes(x = date, y = Cumulative_Sum, color = Column)) +
+    geom_line() +
+    labs(x = "Date", y = "Cumulative Sum", color = "Target Variable", title = paste("Cumulative Sum of Forecasted Errors Per Target Variable of", model_name)) +
+    theme_minimal()
+}
+
+
+
+pcrtuned_errorplot<-cumsumplot1(model=pcr_tuned,"pcr_tuned")
+pcrtuned_errorplot
+```
+
+
+```{r}
+cumsumplot2 <- function(models, model_names) {
+  plot_data <- data.frame()
+
+  for (i in 1:length(models)) {
+  model <- models[[i]]
+  model_name <- model_names[i]
+  
+  standardized_data <- scale(model$forecast_error[, -1])
+  
+  cumulative_errors <- rowSums(standardized_data^2)
+  cumulative_sum <- cumsum(cumulative_errors)
+  
+  model_data <- data.frame(date = model$forecast_error$sasdate, cumulative_sum)
+  model_data$date <- as.Date(model_data$date)
+  model_data$model_name <- model_name
+  
+  # Append the data to plot_data
+  plot_data <- rbind(plot_data, model_data)
+  
+}
+
+  # Plot using ggplot
+  ggplot(plot_data, aes(x = date, y = cumulative_sum, color = model_name)) +
+    geom_line(aes(group = model_name)) +  # Add 'group' aesthetic to separate lines
+    labs(x = "Date", y = "Cumulative Sum", color = "Model",
+         title = "Cumulative Sum of Errors per Model") +
+    theme_minimal()
+}
+
+models=list(ar1_res,pcr_res,diffusionmap_res,pcrquadratic_res,kernelquadratic_res,kernelgauss_res,tvpcr50_res,tvpcr100_res,tvpcr150_res,tvpcr200_res,tvpcr250_res,tvpcr_lasso_res,tvpcr_adalasso_res)
+model_names=c('ar1_res','pcr_res','diffusionmap_res','pcrquadratic_res','kernelquadratic_res','kernelgauss_res','tvpcr50_res','tvpcr100_res','tvpcr150_res','tvpcr200_res','tvpcr250_res','tvpcr_lasso_res','tvpcr_adalasso_res')
+
+cumsumplot2(models, model_names)
+```
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(ggplot2)
+
+process_models_and_plot <- function(models, model_names, target_v) {
+
+  models <- lapply(models, function(model) model$forecast_errors)
+  models <- lapply(models, function(model) model[c(c('sasdate'),target_v)])
+  
+  target_variables <- colnames(models[[1]])[-1]
+  
+  model_pre_covid <- lapply(models, function(model) model[model$sasdate<'2020-01-01',])
+  model_after_covid <- lapply(models, function(model) model[model$sasdate>='2020-01-01',])
+
+  scaling_params_pre <- map_dfr(target_variables, ~ {
+    target_variable <- .x
+    values <- unlist(map(model_pre_covid, ~ .x[[target_variable]]))
+    data.frame(
+      variable = target_variable,
+      mean = mean(values, na.rm = TRUE),
+      sd = sd(values, na.rm = TRUE)
+    )
+  })
+  
+  scaling_params_after <- map_dfr(target_variables, ~ {
+    target_variable <- .x
+    values <- unlist(map(model_after_covid, ~ .x[[target_variable]]))
+    data.frame(
+      variable = target_variable,
+      mean = mean(values, na.rm = TRUE),
+      sd = sd(values, na.rm = TRUE)
+    )
+  })
+  
+  # models[[1]][,-1]=scale(models[[1]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  # models[[2]][,-1]=scale(models[[2]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  # models[[3]][,-1]=scale(models[[3]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  
+  models <- lapply(models, function(df) {
+  df[df$sasdate<'2020-01-01', -1] <- scale(df[df$sasdate<'2020-01-01', -1], center = scaling_params_pre$mean, scale = scaling_params_pre$sd)
+  return(df)
+  })
+  
+  models <- lapply(models, function(df) {
+  df[df$sasdate>='2020-01-01', -1] <- scale(df[df$sasdate>='2020-01-01', -1], center = scaling_params_after$mean, scale = scaling_params_after$sd)
+  return(df)
+  })
+  
+  models <- lapply(models, function(df) {
+  df[, -1] <- abs(df[, -1])
+  #df[, -1] <- df[, -1]^2
+  return(df)
+  })
+
+  # scale_values <- function(df, scaling_params) {
+  #   map_dfc(target_variables, ~ {
+  #     target_variable <- .x
+  #     params <- filter(scaling_params, variable == target_variable)
+  #     scaled_values <- (df[, target_variable] - params$mean) / params$sd
+  #     return(ifelse(is.na(scaled_values), 0, scaled_values))
+  #   }) %>% bind_cols(df["sasdate"], .)
+  # }
+  # 
+  # models_scaled <- map(models, scale_values, scaling_params = scaling_params)
+  
+  process_model <- function(df, model_name) {
+    df %>%
+      rowwise() %>%
+      mutate(mean_error = mean(c_across(-sasdate), na.rm = TRUE)) %>%
+      ungroup() %>% 
+      mutate(cumulative_error = cumsum(mean_error)) %>%
+      mutate(model = model_name)
+  }
+  
+  models_processed <- mapply(process_model, models, model_names, SIMPLIFY = FALSE)
+  
+  all_models_processed <- bind_rows(models_processed)
+  
+  #max_cumulative_error <- max(all_models_processed$cumulative_error, na.rm = TRUE)
+  max_cumulative_error <-max(all_models_processed[all_models_processed$model=='pcr_res',]$cumulative_error)
+
+  
+  all_models_processed <- all_models_processed %>%
+    mutate(scaled_cumulative_error = cumulative_error / max_cumulative_error)
+  
+  ggplot(all_models_processed, aes(x = sasdate, y = scaled_cumulative_error, color = model)) +
+    geom_line() +
+    labs(x = "Date", y = "Scaled Cumulative Error", color = "Model") +
+    theme_minimal()+
+    geom_vline(xintercept = as.numeric(as.Date('2020-01-01')), linetype = "dashed", color = "black") +
+    ylim(0, 1.4)+ labs(title = "Target variables: PAYEMS")
+}
+
+
+
+# models=list(ar1_res,pcr_res,diffusionmap_res,pcrquadratic_res,kernelquadratic_res,kernelgauss_res,tvpcr50_res,tvpcr100_res,tvpcr150_res,tvpcr200_res,tvpcr250_res,tvpcr_lasso_res,tvpcr_adalasso_res)
+# model_names=c('ar1_res','pcr_res','diffusionmap_res','pcrquadratic_res','kernelquadratic_res','kernelgauss_res','tvpcr50_res','tvpcr100_res','tvpcr150_res','tvpcr200_res','tvpcr250_res','tvpcr_lasso_res','tvpcr_adalasso_res')
+
+models=list(pcr_res,tvpcr_lasso_res,tvpcr100_res,tvpcr_adalasso_res)
+#models=list(get_covid_data(pcr_res,date='2020-01-01'),get_covid_data(tvpcr_lasso_res,date='2020-01-01'),get_covid_data(diffusionmap_res,date='2020-01-01'))
+
+model_names=c('pcr_res','tvpcr_lasso_res','tvpcr100_res','tvpcr_adalasso_res')
+target=c("UNRATE", "W875RX1", "GS10", "CPIAUCSL", "WPSFD49207", "PAYEMS", "HOUST", "INDPRO", "M2SL", "S.P.500")
+# Apply function
+process_models_and_plot(models, model_names,target_v=target)
+
+```
+
+```{r}
+models=list(pcr_res,tvpcr_lasso_res,ar1_res)
+model_names=c('pcr_res','tvpcr_lasso_res','ar1_res')
+
+  models <- lapply(models, function(model) model$forecast_errors)
+
+  target_variables <- colnames(models[[1]])[-1]
+  
+  scaling_params <- map_dfr(target_variables, ~ {
+    target_variable <- .x
+    values <- unlist(map(models, ~ .x[[target_variable]]))
+    data.frame(
+      variable = target_variable,
+      mean = mean(values, na.rm = TRUE),
+      sd = sd(values, na.rm = TRUE)
+    )
+  })
+  
+  # models[[1]][,-1]=scale(models[[1]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  # models[[2]][,-1]=scale(models[[2]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  # models[[3]][,-1]=scale(models[[3]][,-1],center = scaling_params$mean, scale = scaling_params$sd)
+  
+  models <- lapply(models, function(df) {
+  df[, -1] <- scale(df[, -1], center = scaling_params$mean, scale = scaling_params$sd)
+  return(df)
+  })
+  models <- lapply(models, function(df) {
+  df[, -1] <- abs(df[, -1])
+  return(df)
+  })
+
+  # scale_values <- function(df, scaling_params) {
+  #   map_dfc(target_variables, ~ {
+  #     target_variable <- .x
+  #     params <- filter(scaling_params, variable == target_variable)
+  #     scaled_values <- (df[, target_variable] - params$mean) / params$sd
+  #     return(ifelse(is.na(scaled_values), 0, scaled_values))
+  #   }) %>% bind_cols(df["sasdate"], .)
+  # }
+  # 
+  # models_scaled <- map(models, scale_values, scaling_params = scaling_params)
+  
+  process_model <- function(df, model_name) {
+    df %>%
+      rowwise() %>%
+      mutate(mean_error = mean(c_across(-sasdate), na.rm = TRUE)) %>%
+      ungroup() %>%
+      mutate(cumulative_error = cumsum(mean_error)) %>%
+      mutate(model = model_name)
+  }
+  
+  models_processed <- mapply(process_model, models, model_names, SIMPLIFY = FALSE)
+  
+  all_models_processed <- bind_rows(models_processed)
+  
+  max_cumulative_error <- max(all_models_processed$cumulative_error, na.rm = TRUE)
+  
+  all_models_processed <- all_models_processed %>%
+    mutate(scaled_cumulative_error = cumulative_error / max_cumulative_error)
+  
+```
+
+```{r}
+models=list(ar1_res,pcr_res,diffusionmap_res,pcrquadratic_res,kernelquadratic_res,kernelgauss_res,tvpcr50_res,tvpcr100_res,tvpcr150_res,tvpcr200_res,tvpcr250_res,tvpcr_lasso_res,tvpcr_adalasso_res)
+model_names=c('ar1_res','pcr_res','diffusionmap_res','pcrquadratic_res','kernelquadratic_res','kernelgauss_res','tvpcr50_res','tvpcr100_res','tvpcr150_res','tvpcr200_res','tvpcr250_res','tvpcr_lasso_res','tvpcr_adalasso_res')
+
+
+correlation_heatmap_of_errors <- function(models, model_names) {
+  par(mfrow = c(1, length(models)))  # Set the layout to display plots side by side
+
+  for (i in 1:length(models)) {
+    model <- models[[i]]
+    model_name <- model_names[i]
+
+    model_errors <- model$forecast_errors[, -1]
+    error_matrix <- cor(model_errors)
+
+    heatmap(error_matrix,
+            col = colorRampPalette(c("blue", "white", "red"))(100),
+            main = paste0("Correlation Heatmap of errors of target variables:", model_name),
+            cex.axis = 0.8,
+            cex.lab = 0.9)
+  }
+}
+
+correlation_heatmap_of_errors(models, model_names)
+```
+
+
+#### GET correlation HEATMAP
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+folder_path <- "components/"
+
+# Get the list of all files in the folder
+file_list <- list.files(path = folder_path, full.names = TRUE)
+
+# Create an empty list to store the imported objects
+imported_list <- list()
+heatmap_data <- list()
+# Loop through the file list and import the files
+for (file in file_list) {
+  object_name <- tools::file_path_sans_ext(basename(file))
+  imported_list[[object_name]] <- readRDS(file)
+}
+
+tvpcr_LASSO <- imported_list$tvpcr_LASSO
+
+imported_list <- imported_list[c(c(1:(length(imported_list)-3)))] #ELIMINATE TVPC
+d <- preprocess_fredmd(fredmd)[,-1]
+d_scaled <- scale(d)
+target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+observed_vars <- d[,target_variables]
+
+
+
+for (i in 1:length(imported_list)) {
+  
+  
+  selected_components <- imported_list[[i]]
+  correlation_matrix<-cor(observed_vars, selected_components)
+  sumquares <- sqrt(rowMeans(correlation_matrix^2))
+    
+    # Convert the correlation matrix to a data frame
+  correlation_df <- as.data.frame(sumquares)
+    
+    # Reset row names to be the observed variable names
+  rownames(correlation_df) <- colnames(observed_vars)
+    
+    # Prepare the data for the heatmap plot
+  heatmap_data[[i]] <- correlation_df %>%
+  as_tibble(rownames = "Observed_Variables") %>%
+  pivot_longer(cols = -Observed_Variables, names_to = "Factor", values_to = "Correlation") %>%
+  mutate(Model = names(imported_list)[i])  # Add a column for the model name
+  
+}
+
+
+  
+  # Combine the heatmap data for all models into a single data frame
+combined_data <- bind_rows(heatmap_data)
+
+
+df <- data.frame(
+  Observed_Variables = c("UNRATE", "W875RX1", "GS10", "CPIAUCSL", "WPSFD49207", "PAYEMS", "HOUST", "INDPRO", "M2SL", "S.P.500"),
+  Factor = rep("sumquares", 10),
+  Correlation =c(0.29891846, 0.34203315, 0.15526205, 0.08564993, 0.28240504, 0.14821782, 0.12289646, 0.25460440,0.39350043, 0.24304560),
+  # Correlation = c(-0.119494911, 0.328642551, 0.155262047, -0.001911627, -0.091183057, 0.028721317, 0.017200875, 0.068903145, -0.393500431, -0.073455917),
+  Model = rep("tvpcr_LASSO", 10)
+)
+
+combined_data <- rbind(combined_data, df)
+
+############# create ratio to benchmark
+pcr_correlation <- combined_data %>% 
+  filter(Model == "Pcr") %>%
+  select(Observed_Variables, Correlation)
+
+names(pcr_correlation)[names(pcr_correlation) == "Correlation"] <- "Pcr_Correlation"
+
+# Join the lookup table with your original dataframe
+combined_data <- combined_data %>%
+  left_join(pcr_correlation, by = "Observed_Variables")
+
+# Compute the ratio of the correlation to the "Pcr" correlation
+combined_data <- combined_data %>%
+  mutate(ratio = Correlation / Pcr_Correlation)
+#############
+
+  
+  # Create the heatmap plot
+heatmap_plot <- ggplot(combined_data, aes(x = Factor, y = Observed_Variables, fill = Correlation)) +
+  geom_tile() +
+  facet_grid(.~ Model, scales = "free_x", space = "free") +  # Display heatmaps of all models with model names at the bottom
+  labs(x = "Latent components", y = "Observed Variables", fill = "RMS of Correlations") +
+  scale_fill_gradient2(low = "steelblue",mid='white',high = "darkred", guide = "colorbar") +
+  theme(axis.text.x = element_blank())
+  
+  # Display the heatmap plot
+print(heatmap_plot)
+
+
+  # Create the heatmap plot
+heatmap_plot <- ggplot(combined_data, aes(x = Factor, y = Observed_Variables, fill = ratio)) +
+  geom_tile() +
+  facet_grid(.~ Model, scales = "free_x", space = "free") +  # Display heatmaps of all models with model names at the bottom
+  labs(x = "Latent components", y = "Observed Variables", fill = "Ratio to PCR corr") +
+  scale_fill_gradient2(low = "steelblue",mid='white',midpoint = 1,high = "darkred", guide = "colorbar") +
+  theme(axis.text.x = element_blank())
+  
+  # Display the heatmap plot
+print(heatmap_plot)
+
+```
+
+#### GET correlation for LASSO
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+folder_path <- "components/"
+
+# Get the list of all files in the folder
+file_list <- list.files(path = folder_path, full.names = TRUE)
+
+# Create an empty list to store the imported objects
+imported_list <- list()
+heatmap_data <- list()
+# Loop through the file list and import the files
+for (file in file_list) {
+  object_name <- tools::file_path_sans_ext(basename(file))
+  imported_list[[object_name]] <- readRDS(file)
+}
+
+tvpcr_LASSO <- imported_list$tvpcr_LASSO
+imported_list <- imported_list[c(c(1:(length(imported_list)-3)))]
+d <- preprocess_fredmd(fredmd)[,-1]
+d_scaled <- scale(d)
+target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+observed_vars <- d[,target_variables]
+
+
+
+
+# Initializing a list to hold the correlations
+correlation_list <- list()
+observed_var=observed_vars[-nrow(observed_vars),]
+# Loop over the names in the tvpcr_LASSO list
+for (name in names(tvpcr_LASSO)) {
+  # Get the corresponding dataframe from the tvpcr_LASSO list
+  df <- as.data.frame(tvpcr_LASSO[[name]])
+  
+  # Calculate the correlations between all columns in the dataframe and the
+  # respective column in the observed_var dataframe, and store the results in a vector
+  correlations <- sapply(df, function(column) cor(column,  observed_var[[name]]))
+  
+  # Compute the mean of the correlations and store in the list
+  correlation_list[[name]] <- sqrt(mean(correlations^2))
+}
+
+# Convert the list of correlations into a dataframe
+correlation_df <- as.data.frame(do.call(rbind, correlation_list))
+
+# Renaming the column in the resulting dataframe
+colnames(correlation_df) <- "Correlation"
+
+# Print the resulting dataframe
+print(correlation_df)
+correlation_df$Correlation
+```
+
+##### Same before covid
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+folder_path <- "components_before_covid/"
+
+# Get the list of all files in the folder
+file_list <- list.files(path = folder_path, full.names = TRUE)
+
+# Create an empty list to store the imported objects
+imported_list <- list()
+heatmap_data <- list()
+# Loop through the file list and import the files
+for (file in file_list) {
+  object_name <- tools::file_path_sans_ext(basename(file))
+  imported_list[[object_name]] <- readRDS(file)
+}
+
+tvpcr_LASSO <- imported_list$tvpcr_LASSO
+
+names(imported_list)
+
+imported_list <- imported_list[c(c(1:(length(imported_list)-1)))] #ELIMINATE TVPC
+d <- preprocess_fredmd(fredmd[1:733,])[,-1]
+d_scaled <- scale(d)
+#target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+target_variables<-names(d)[-1]
+observed_vars <- d[,target_variables]
+names(d)[-1]
+
+
+for (i in 1:length(imported_list)) {
+  
+  
+  selected_components <- imported_list[[i]]
+  correlation_matrix<-cor(observed_vars, selected_components)
+  #sumquares <- sqrt(rowMeans(correlation_matrix^2))
+  sumquares <- rowMeans(abs(correlation_matrix))
+    
+    # Convert the correlation matrix to a data frame
+  correlation_df <- as.data.frame(sumquares)
+    
+    # Reset row names to be the observed variable names
+  rownames(correlation_df) <- colnames(observed_vars)
+    
+    # Prepare the data for the heatmap plot
+  heatmap_data[[i]] <- correlation_df %>%
+  as_tibble(rownames = "Observed_Variables") %>%
+  pivot_longer(cols = -Observed_Variables, names_to = "Factor", values_to = "Correlation") %>%
+  mutate(Model = names(imported_list)[i])  # Add a column for the model name
+  
+}
+
+
+  
+  # Combine the heatmap data for all models into a single data frame
+combined_data <- bind_rows(heatmap_data)
+
+# 
+df <- data.frame(
+  Observed_Variables = c("UNRATE", "W875RX1", "GS10", "CPIAUCSL", "WPSFD49207", "PAYEMS", "HOUST", "INDPRO", "M2SL", "S.P.500"),
+  Factor = rep("sumquares", 10)
+  #Correlation =c(0.16643489, 0.23096129, 0.14666654, 0.06638328, 0.14487249, 0.23205967, 0.73120422, 0.23165776,0.08054554, 0.05891683),
+  # Correlation =c(0.10463304, 0.21582924, 0.11696581, 0.04831331, 0.12136075, 0.12281206, 0.73120422, 0.14392982,0.06042735, 0.05707524),
+  # Model = rep("tvpcr_LASSO", 10)
+)
+
+#combined_data <- rbind(combined_data, df)
+
+
+############# create ratio to benchmark
+pcr_correlation <- combined_data %>% 
+  filter(Model == "Pcr") %>%
+  select(Observed_Variables, Correlation)
+
+names(pcr_correlation)[names(pcr_correlation) == "Correlation"] <- "Pcr_Correlation"
+
+# Join the lookup table with your original dataframe
+combined_data <- combined_data %>%
+  left_join(pcr_correlation, by = "Observed_Variables")
+
+# Compute the ratio of the correlation to the "Pcr" correlation
+combined_data <- combined_data %>%
+  mutate(ratio = Correlation / Pcr_Correlation)
+#############
+
+  
+  # Create the heatmap plot
+heatmap_plot <- ggplot(combined_data, aes(x = Factor, y = Observed_Variables, fill = Correlation)) +
+  geom_tile() +
+  facet_grid(.~ Model, scales = "free_x", space = "free") +  # Display heatmaps of all models with model names at the bottom
+  labs(x = "Latent components", y = "Observed Variables", fill = "RMS of Correlations") +
+  scale_fill_gradient2(low = "steelblue",mid='white',high = "darkred", guide = "colorbar") +
+  theme(axis.text.x = element_blank())
+  
+  # Display the heatmap plot
+print(heatmap_plot)
+
+
+  # Create the heatmap plot
+heatmap_plot <- ggplot(combined_data, aes(x = Factor, y = Observed_Variables, fill = ratio)) +
+  geom_tile() +
+  facet_grid(.~ Model, scales = "free_x", space = "free") +  # Display heatmaps of all models with model names at the bottom
+  labs(x = "Latent components", y = "Observed Variables", fill = "Ratio to PCR corr") +
+  scale_fill_gradient2(low = "steelblue",mid='white',midpoint = 1,high = "darkred", guide = "colorbar") +
+  theme(axis.text.x = element_blank())
+  
+  # Display the heatmap plot
+print(heatmap_plot)
+
+
+```
+
+
+
+#### GET correlation for LASSO
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(gridExtra)
+folder_path <- "components_before_covid/"
+
+# Get the list of all files in the folder
+file_list <- list.files(path = folder_path, full.names = TRUE)
+
+# Create an empty list to store the imported objects
+imported_list <- list()
+heatmap_data <- list()
+# Loop through the file list and import the files
+for (file in file_list) {
+  object_name <- tools::file_path_sans_ext(basename(file))
+  imported_list[[object_name]] <- readRDS(file)
+}
+
+tvpcr_LASSO <- imported_list$tvpcr_LASSO
+d <- preprocess_fredmd(fredmd[1:733,])[,-1]
+d_scaled <- scale(d)
+target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+observed_vars <- d[,target_variables]
+
+
+
+
+# Initializing a list to hold the correlations
+correlation_list <- list()
+observed_var=observed_vars[-nrow(observed_vars),]
+# Loop over the names in the tvpcr_LASSO list
+for (name in names(tvpcr_LASSO)) {
+  # Get the corresponding dataframe from the tvpcr_LASSO list
+  df <- as.data.frame(tvpcr_LASSO[[name]])
+  
+  # Calculate the correlations between all columns in the dataframe and the
+  # respective column in the observed_var dataframe, and store the results in a vector
+  correlations <- sapply(df, function(column) cor(column,  observed_var[[name]]))
+  
+  # Compute the mean of the correlations and store in the list
+  #correlation_list[[name]] <- sqrt(mean(correlations^2))
+  correlation_list[[name]] <- mean(abs(correlations))
+}
+
+# Convert the list of correlations into a dataframe
+correlation_df <- as.data.frame(do.call(rbind, correlation_list))
+
+# Renaming the column in the resulting dataframe
+colnames(correlation_df) <- "Correlation"
+
+# Print the resulting dataframe
+print(correlation_df)
+correlation_df$Correlation
+```
+
+
+
+
+### PARTIAL R^2 between Time Varying PCR and PCR tuned
+
+```{r}
+time_varying_PCR<- readRDS("results/tvpcr_lasso_horizon4_windowsize672_pseudoTRUE")
+pcr<-readRDS("results/pcr_reg_horizon4_windowsize672_pseudoTRUE")
+```
+
+```{r}
+d_scaled <- time_varying_PCR$ground_truth
+names(d_scaled) <- paste0(names(d_scaled), "_truth")
+names(d_scaled)[1] <- "date"
+f_hat1 <- pcr$forecasts[,-1]
+names(f_hat1) <- paste0(names(f_hat1), "_pred1")
+f_hat2 <- time_varying_PCR$forecasts[,-1]
+names(f_hat2) <- paste0(names(f_hat2), "_pred2")
+
+f_hat <- cbind(f_hat1, f_hat2)
+```
+
+```{r}
+def_model <- function(df, n_factors, type){
+    formula <- as.formula(paste("truth ~", paste0("pred", 1:n_factors, collapse = "+")))
+    model <- lm(formula, data = df)
+    r2 <- summary(model)$adj.r.squared
+    r2
+  }
+```
+
+```{r}
+#library(magrittr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+mr2_table <- d_scaled %>% 
+    bind_cols(f_hat) %>%
+    pivot_longer(-date, names_sep = "_", names_to = c("variable", "type")) %>% 
+    pivot_wider(id_cols = c(date, variable), names_from = type, values_from = value, 
+                names_repair = "check_unique") |> 
+    group_by(variable) %>% 
+    nest() %>% 
+    mutate(r2_f1 = map(data, function(df){def_model(df, 1, type)})) %>% 
+    mutate(r2_f2 = map(data, function(df){def_model(df, 2, type)})) %>% 
+    unnest(cols = r2_f1:r2_f2) %>%
+    select(-data) %>% 
+    mutate(mr2_f1 = r2_f1) %>% 
+    mutate(mr2_f2 = r2_f2 - r2_f1) %>% 
+    ungroup()
+  
+  mr2_table
+  
+mr2_table$diff<-mr2_table$mr2_f2-mr2_table_op$mr2_f2
+```
+
+```{r}
+library(ggplot2)
+ggplot(mr2_table, aes(x = variable, y = (mr2_f1))) +
+  geom_point() +
+  labs(x = "Variable", y = "mr2_f1") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(mr2_table, aes(x = variable, y = mr2_f2)) +
+  geom_point() +
+  labs(x = "Variable", y = "mr2_f2") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+```{r}
+ggplot(mr2_table, aes(x = variable, y = (diff))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Variable", y = "mr2_f1") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(mr2_table, aes(x = variable, y = mr2_f1)) +
+  geom_boxplot() +
+  labs(x = "Variable", y = "Partial R-squared (f2)") +
+  ggtitle("Boxplot of Partial R-squared (f2)") +
+  theme_minimal()
+```
+
+
+
+####### Invert
+
+
+```{r}
+pcr<- readRDS("results/tvpcr_lasso_horizon4_windowsize672_pseudoTRUE")
+time_varying_PCR<-readRDS("results/pcr_reg_horizon4_windowsize672_pseudoTRUE")
+
+```
+
+```{r}
+d_scaled <- time_varying_PCR$ground_truth
+names(d_scaled) <- paste0(names(d_scaled), "_truth")
+names(d_scaled)[1] <- "date"
+f_hat1 <- pcr$forecasts[,-1]
+names(f_hat1) <- paste0(names(f_hat1), "_pred1")
+f_hat2 <- time_varying_PCR$forecasts[,-1]
+names(f_hat2) <- paste0(names(f_hat2), "_pred2")
+
+f_hat <- cbind(f_hat1, f_hat2)
+```
+
+```{r}
+def_model <- function(df, n_factors, type){
+    formula <- as.formula(paste("truth ~", paste0("pred", 1:n_factors, collapse = "+")))
+    model <- lm(formula, data = df)
+    r2 <- summary(model)$adj.r.squared
+    r2
+  }
+```
+
+```{r}
+#library(magrittr)
+library(dplyr)
+library(tidyr)
+library(purrr)
+mr2_table_op <- d_scaled %>% 
+    bind_cols(f_hat) %>%
+    pivot_longer(-date, names_sep = "_", names_to = c("variable", "type")) %>% 
+    pivot_wider(id_cols = c(date, variable), names_from = type, values_from = value, 
+                names_repair = "check_unique") |> 
+    group_by(variable) %>% 
+    nest() %>% 
+    mutate(r2_f1 = map(data, function(df){def_model(df, 1, type)})) %>% 
+    mutate(r2_f2 = map(data, function(df){def_model(df, 2, type)})) %>% 
+    unnest(cols = r2_f1:r2_f2) %>%
+    select(-data) %>% 
+    mutate(mr2_f1 = r2_f1) %>% 
+    mutate(mr2_f2 = r2_f2 - r2_f1) %>% 
+    ungroup()
+  
+  mr2_table_op
+
+
+```
+
+```{r}
+library(ggplot2)
+ggplot(mr2_table_op, aes(x = variable, y = (mr2_f1))) +
+  geom_point() +
+  labs(x = "Variable", y = "mr2_f1") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(mr2_table_op, aes(x = variable, y = mr2_f2)) +
+  geom_point() +
+  labs(x = "Variable", y = "mr2_f2") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+```{r}
+ggplot(mr2_table_op, aes(x = variable, y = (mr2_f1))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(x = "Variable", y = "mr2_f1") +
+  ggtitle("Partial R-squared for Each Variable with 1 factor (mr2_f1)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(mr2_table_op, aes(x = variable, y = mr2_f1)) +
+  geom_boxplot() +
+  labs(x = "Variable", y = "Partial R-squared (f2)") +
+  ggtitle("Boxplot of Partial R-squared (f2)") +
+  theme_minimal()
+```
+
+
+##### MAX corr
+
+```{r}
+setup_name="_horizon1_windowsize672_pseudoTRUE"
+ar1_res <- readRDS(paste0("results/ar1_benchmark", setup_name))
+pcr_res <- readRDS(paste0("results/pcr_reg", setup_name))
+diffusionmap_res <- readRDS(paste0("results/diffusion_map_reg", setup_name))
+pcrquadratic_res <- readRDS(paste0("results/pcr_quadratic_reg", setup_name))
+kernelquadratic_res <- readRDS(paste0("results/kernel_pcrpoly2", setup_name))
+kernelgauss_res <- readRDS(paste0("results/kernel_pcrgaussian0.001", setup_name))
+tvpcr50_res <- readRDS(paste0("results/tvpcr50", setup_name))
+tvpcr100_res <- readRDS(paste0("results/tvpcr100", setup_name))
+# tvpcr150_res <- readRDS(paste0("results/tvpcr150", setup_name))
+# tvpcr200_res <- readRDS(paste0("results/tvpcr200", setup_name))
+# tvpcr250_res <- readRDS(paste0("results/tvpcr250", setup_name))
+tvpcr_lasso_res <- readRDS(paste0("results/tvpcr_lasso", setup_name))
+# tvpcr_adalasso_res <- readRDS(paste0("results/tvpcr_adalasso", setup_name))
+tvpcr_ada_lasso_lasso_res <- readRDS(paste0("results/tvpcr_ada_lasso_lasso_res", setup_name))
+# tvpcr_adalassoBIC_res <- readRDS(paste0("results/tvpcr_adalassoBIC", setup_name))
+tvpcr_ridge_res <- readRDS(paste0("results/tvpcr_ridge", setup_name))
+# tvpcr_elasticnet_res <- readRDS(paste0("results/tvpcr_elasticnet", setup_name))
+# rtsne_res <- readRDS(paste0("results/rtsne_reg", setup_name))
+lle_res <- readRDS(paste0("results/lle_reg", setup_name))
+isomap_res <- readRDS(paste0("results/isomap_reg", setup_name))
+d2fm_res <- readRDS(paste0("results/d2fm", setup_name))
+dfm_res <- readRDS(paste0("results/dfm", setup_name))
+
+forecasters_name <- c("ar1_res", "pcr_res", "diffusionmap_res","pcrquadratic_res",'kernelquadratic_res','kernelgauss_res','tvpcr50_res','tvpcr100_res','tvpcr_lasso_res','tvpcr_ada_lasso_lasso_res')#,'tvpcr_ridge_res','lle_res','isomap_res','d2fm_res','dfm_res') 
+
+# List to store 'forecast_errors' dataframes
+all_forecasts <- list()
+
+target_variables <- c("UNRATE","W875RX1","GS10","CPIAUCSL","WPSFD49207","PAYEMS","HOUST","INDPRO","M2SL","S.P.500") 
+
+all_forecasts[[1]] <- ar1_res$forecast_errors
+all_forecasts[[2]] <- pcr_res$forecast_errors
+all_forecasts[[3]] <- diffusionmap_res$forecast_errors
+all_forecasts[[4]] <- pcrquadratic_res$forecast_errors
+all_forecasts[[5]] <- kernelquadratic_res$forecast_errors
+all_forecasts[[6]] <- kernelgauss_res$forecast_errors
+all_forecasts[[7]] <- tvpcr50_res$forecast_errors
+all_forecasts[[8]] <- tvpcr100_res$forecast_errors
+all_forecasts[[9]] <- tvpcr_lasso_res$forecast_errors
+all_forecasts[[10]] <- tvpcr_ada_lasso_lasso_res$forecast_errors
+names(all_forecasts)
+
+d <- preprocess_fredmd(fredmd)[,-1]
+d <- d[674:770,]
+d_scaled <- scale(d)
+observedvariables <- d_scaled
+
+all_forecasts[[1]][,1]
+
+num_forecasts <- length(all_forecasts)
+
+# Number of observed variables
+num_observed_variables <- ncol(observedvariables)
+
+correlation_matrix <- matrix(nrow = num_observed_variables, ncol = num_forecasts * 10)
+
+# Loop over all target variables in all_forecasts
+for(i in 1:num_forecasts){
+  for(j in 1:10){
+    # Get target variable
+    target_variable <- all_forecasts[[i]][,j+1]
+    
+    # Loop over all observed variables
+    for(k in 1:ncol(observedvariables)){
+      # Get observed variable
+      observed_variable <- observedvariables[,k]
+      
+      # Compute correlation and store it in the matrix
+      correlation_matrix[k, (i-1)*10+j] <- abs(cor(target_variable, observed_variable))
+    }
+  }
+}
+
+colnames(correlation_matrix)
+rownames(correlation_matrix)=colnames(fredmd)[-1]
+heatmap(correlation_matrix,Rowv = NA, Colv =NA,scale = "none")
+
+
+
+
+
+library(ComplexHeatmap)
+library(scales)
+
+
+
+# Create a character vector for the names of the column groups
+col_names <- rep(forecasters_name, each = 10)
+
+# Reorder the correlation matrix based on the forecaster names
+correlation_matrix <- correlation_matrix[, order(col_names)]
+
+# Update the column names in the reordered correlation matrix
+colnames(correlation_matrix) <- col_names[order(col_names)]
+
+# Customize annotation colors (you can modify colors based on your preference)
+annotation_colors = hue_pal()(length(forecasters_name))
+names(annotation_colors) = forecasters_name
+
+# Set up a HeatmapAnnotation object
+ha = HeatmapAnnotation(df = data.frame(forecasters = factor(colnames(correlation_matrix), levels = forecasters_name)),
+                       annotation_legend_param = list(forecasters = list(colors = annotation_colors)))
+
+# Draw the heatmap
+Heatmap(correlation_matrix, 
+        name = "correlation", 
+        top_annotation = ha, 
+        show_column_names = FALSE)
+
+```
+```{r}
+# Load necessary library
+library(gplots)
+
+# Create a matrix of random values
+set.seed(123)  # for reproducibility
+n <- 200
+m <- 100
+mat <- matrix(rnorm(n*m), ncol=m)
+
+# Create labels for the x-axis
+x_labels <- rep("", m)  # initialize with empty strings
+for (i in 1:10) {
+  x_labels[i*10-1] <- forecasters_name[i]
+
+}
+
+# Create the heatmap
+heatmap.2(correlation_matrix, 
+          srtCol = 20,  # rotates column labels
+          offsetCol = 0.5,  # offsets column labels
+          cexCol = 0.5,  # adjusts size of column labels
+          Colv = NULL,  # disables column clustering
+          dendrogram = "row",  # only clusters rows
+          col = heat.colors(256),  # color scheme
+          labCol = x_labels,  # column labels
+          trace = "none")  # removes trace lines
+
+```
+
+```{r}
+# Load necessary library
+library(gplots)
+
+# Create a matrix of random values
+set.seed(123)  # for reproducibility
+n <- 100
+m <- 50
+mat <- matrix(rnorm(n*m), ncol=m)
+
+# Create labels for the x-axis
+x_labels <- rep("", m)  # initialize with empty strings
+x_labels[seq(1, m, by=10)] <- paste("Label", seq(1, m, by=10))  # add labels every 10 columns
+
+# Create the heatmap
+heatmap.2(mat, 
+          srtCol = 45,  # rotates column labels
+          offsetCol = 0.5,  # offsets column labels
+          cexCol = 0.5,  # adjusts size of column labels
+          Colv = NULL,  # disables column clustering
+          dendrogram = "row",  # only clusters rows
+          col = heat.colors(256),  # color scheme
+          labCol = x_labels,  # column labels
+          trace = "none",  # removes trace lines
+          key = FALSE,  # removes color key
+          density.info = "none",  # removes density plot
+          margins = c(5, 5))  # adjusts margins
+
+# Add vertical lines
+for(i in seq(10, m, by=10)) {
+  abline(v=i, col="black", lwd=5)
+}
+
+```
+
+```{r}
+# Load necessary library
+library(lattice)
+
+# Create a matrix of random values
+set.seed(123)  # for reproducibility
+n <- 100
+m <- 50
+mat <- matrix(rnorm(n*m), ncol=m)
+
+# Create labels for the x-axis
+x_labels <- rep("", m)  # initialize with empty strings
+x_labels[seq(1, m, by=10)] <- paste("Label", seq(1, m, by=10))  # add labels every 10 columns
+
+# Create the heatmap (levelplot)
+levelplot(mat, 
+          scales=list(x=list(labels=x_labels, at=1:m)), 
+          colorkey = TRUE, 
+          col.regions=colorRampPalette(c("blue", "white", "red")))
+
+# Add vertical lines every 10 columns
+panel.lines(x=seq(10, m, by=10), y=c(0, n), col="white", lwd=2, lty=1)
+
+```
+

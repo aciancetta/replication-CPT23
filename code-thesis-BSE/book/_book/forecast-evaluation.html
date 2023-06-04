@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Chapter 2 Forecast evaluation | Forecast evaluation pipeline</title>
+<meta name="author" content="Alessandro Ciancetta">
+<meta name="description" content='## Load code from script folders preprocessing_scripts_env &lt;- new.env()   file.sources = list.files(paste0(getwd(), "/sourcecode/",                 c("forecast_algorithms", "forecast_evaluation") ...'>
+<meta name="generator" content="bookdown 0.33 with bs4_book()">
+<meta property="og:title" content="Chapter 2 Forecast evaluation | Forecast evaluation pipeline">
+<meta property="og:type" content="book">
+<meta property="og:description" content='## Load code from script folders preprocessing_scripts_env &lt;- new.env()   file.sources = list.files(paste0(getwd(), "/sourcecode/",                 c("forecast_algorithms", "forecast_evaluation") ...'>
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chapter 2 Forecast evaluation | Forecast evaluation pipeline">
+<meta name="twitter:description" content='## Load code from script folders preprocessing_scripts_env &lt;- new.env()   file.sources = list.files(paste0(getwd(), "/sourcecode/",                 c("forecast_algorithms", "forecast_evaluation") ...'>
+<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
+<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.4.0/transition.js"></script><script src="libs/bs3compat-0.4.0/tabs.js"></script><script src="libs/bs3compat-0.4.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
+<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="libs/kePrint-0.0.1/kePrint.js"></script><link href="libs/lightable-0.0.1/lightable.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">Forecast evaluation pipeline</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+</form>
+
+      <nav aria-label="Table of contents"><h2>Table of contents</h2>
+        <ul class="book-toc list-unstyled">
+<li><a class="" href="index.html">Time-Varying Principal Component Regression</a></li>
+<li><a class="" href="data-preparation.html"><span class="header-section-number">1</span> Data preparation</a></li>
+<li><a class="active" href="forecast-evaluation.html"><span class="header-section-number">2</span> Forecast evaluation</a></li>
+</ul>
+
+        <div class="book-extra">
+          
+        </div>
+      </nav>
+</div>
+  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="forecast-evaluation" class="section level1" number="2">
+<h1>
+<span class="header-section-number">2</span> Forecast evaluation<a class="anchor" aria-label="anchor" href="#forecast-evaluation"><i class="fas fa-link"></i></a>
+</h1>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Load code from script folders</span></span>
+<span><span class="va">preprocessing_scripts_env</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/environment.html">new.env</a></span><span class="op">(</span><span class="op">)</span>    </span>
+<span><span class="va">file.sources</span> <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.files.html">list.files</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/getwd.html">getwd</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"/sourcecode/"</span>,</span>
+<span>                                 <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"forecast_algorithms"</span>, <span class="st">"forecast_evaluation"</span><span class="op">)</span></span>
+<span>                                 <span class="op">)</span>, </span>
+<span>                          pattern<span class="op">=</span><span class="st">".R$"</span>, full.names<span class="op">=</span><span class="cn">TRUE</span>, </span>
+<span>                          ignore.case<span class="op">=</span><span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html">sapply</a></span><span class="op">(</span><span class="va">file.sources</span>, <span class="va">source</span>, <span class="va">preprocessing_scripts_env</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/attach.html">attach</a></span><span class="op">(</span><span class="va">preprocessing_scripts_env</span>, name<span class="op">=</span><span class="st">"sourced_scripts"</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Load data</span></span>
+<span><span class="va">fredmd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html">read.csv</a></span><span class="op">(</span><span class="st">"data/current.csv"</span><span class="op">)</span></span>
+<span><span class="va">target_variables</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="st">"UNRATE"</span>, <span class="st">"W875RX1"</span>, <span class="st">"GS10"</span>, <span class="st">"CPIAUCSL"</span>, <span class="st">"WPSFD49207"</span>, <span class="st">"PAYEMS"</span>, <span class="st">"HOUST"</span>, <span class="st">"INDPRO"</span>, <span class="st">"M2SL"</span>, <span class="st">"S.P.500"</span><span class="op">)</span></span></code></pre></div>
+<p>We evaluate the forecasting performances of different models using a rolling-window approach.</p>
+<div class="inline-table"><table class="table table-sm"><tbody>
+<tr class="odd">
+<td>Initial training period</td>
+<td>1/1/1959 – 12/1/2014</td>
+</tr>
+<tr class="even">
+<td>Tested period</td>
+<td>1/1/2015 – 1/1/2023</td>
+</tr>
+</tbody></table></div>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># fredmd$sasdate[c(1+1, 649, 650, 770)]</span></span>
+<span><span class="co"># window_size = 648</span></span>
+<span><span class="va">fredmd</span><span class="op">$</span><span class="va">sasdate</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html">c</a></span><span class="op">(</span><span class="fl">1</span><span class="op">+</span><span class="fl">1</span>, <span class="fl">673</span>, <span class="fl">674</span>, <span class="fl">770</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; [1] "1/1/1959"  "12/1/2014" "1/1/2015"  "1/1/2023"</span></span>
+<span><span class="va">window_size</span> <span class="op">=</span> <span class="fl">672</span></span></code></pre></div>
+<p>All the results are compared to the RMSFE of a benchmark AR(1) model.</p>
+<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ar1_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">ar1_benchmark</span>, </span>
+<span>                                           horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                           <span class="va">fredmd</span>,</span>
+<span>                                           target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                           window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                           pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                           num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                           verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<div id="evaluation-of-the-models" class="section level2" number="2.1">
+<h2>
+<span class="header-section-number">2.1</span> Evaluation of the models<a class="anchor" aria-label="anchor" href="#evaluation-of-the-models"><i class="fas fa-link"></i></a>
+</h2>
+<p>We consider the following models: Principal Component Regression (PCR), … <em>ADD HERE THE MODELS</em></p>
+<div id="principal-component-regression-pcr" class="section level3" number="2.1.1">
+<h3>
+<span class="header-section-number">2.1.1</span> Principal Component Regression (PCR)<a class="anchor" aria-label="anchor" href="#principal-component-regression-pcr"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pcr_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">pcr_reg</span>, </span>
+<span>                                           horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                           <span class="va">fredmd</span>,</span>
+<span>                                           target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                           window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                           pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                           num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                           verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="diffusion-map" class="section level3" number="2.1.2">
+<h3>
+<span class="header-section-number">2.1.2</span> Diffusion map<a class="anchor" aria-label="anchor" href="#diffusion-map"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">diffusionmap_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">diffusion_map_reg</span>, </span>
+<span>                                                    horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                                    <span class="va">fredmd</span>,</span>
+<span>                                                    target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                                    window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                                    pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                                    num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                                    verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="quadratic-pcr" class="section level3" number="2.1.3">
+<h3>
+<span class="header-section-number">2.1.3</span> Quadratic PCR<a class="anchor" aria-label="anchor" href="#quadratic-pcr"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pcrquadratic_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">pcr_quadratic_reg</span>, </span>
+<span>                                                    horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                                    <span class="va">fredmd</span>,</span>
+<span>                                                    target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                                    window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                                    pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                                    num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                                    verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="kernel-pcr---quadratic-kernel" class="section level3" number="2.1.4">
+<h3>
+<span class="header-section-number">2.1.4</span> Kernel PCR - Quadratic kernel<a class="anchor" aria-label="anchor" href="#kernel-pcr---quadratic-kernel"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">kernelquadratic_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">kernel_poly_pcr_reg</span>, </span>
+<span>                                                       horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                                       <span class="va">fredmd</span>,</span>
+<span>                                                       target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                                       window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                                       pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                                       num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                                       verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="kernel-pcr---gaussian-kernel" class="section level3" number="2.1.5">
+<h3>
+<span class="header-section-number">2.1.5</span> Kernel PCR - Gaussian kernel<a class="anchor" aria-label="anchor" href="#kernel-pcr---gaussian-kernel"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">kernelgauss_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">kernel_gauss_pcr_reg</span>, </span>
+<span>                                                    horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                                    <span class="va">fredmd</span>,</span>
+<span>                                                    target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                                    window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                                    pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                                    num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                                    verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div id="time-varying-pcr" class="section level3" number="2.1.6">
+<h3>
+<span class="header-section-number">2.1.6</span> Time-varying PCR<a class="anchor" aria-label="anchor" href="#time-varying-pcr"><i class="fas fa-link"></i></a>
+</h3>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Define the forecaster functions for different number of principal components</span></span>
+<span><span class="va">forecaster_tvpcr50</span>  <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, <span class="va">horizon</span> <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span> <span class="fu">time_varying_pcr</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, horizon <span class="op">=</span> <span class="fl">1</span>, n_components <span class="op">=</span> <span class="fl">50</span><span class="op">)</span>  <span class="op">}</span></span>
+<span><span class="va">forecaster_tvpcr100</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, <span class="va">horizon</span> <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span> <span class="fu">time_varying_pcr</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, horizon <span class="op">=</span> <span class="fl">1</span>, n_components <span class="op">=</span> <span class="fl">100</span><span class="op">)</span> <span class="op">}</span></span>
+<span><span class="va">forecaster_tvpcr150</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, <span class="va">horizon</span> <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span> <span class="fu">time_varying_pcr</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, horizon <span class="op">=</span> <span class="fl">1</span>, n_components <span class="op">=</span> <span class="fl">150</span><span class="op">)</span> <span class="op">}</span></span>
+<span><span class="va">forecaster_tvpcr250</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, <span class="va">horizon</span> <span class="op">=</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span> <span class="fu">time_varying_pcr</span><span class="op">(</span><span class="va">d</span>, <span class="va">target</span>, horizon <span class="op">=</span> <span class="fl">1</span>, n_components <span class="op">=</span> <span class="fl">250</span><span class="op">)</span> <span class="op">}</span></span></code></pre></div>
+<p>50 components</p>
+<div class="sourceCode" id="cb33"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tvpcr50_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">forecaster_tvpcr50</span>, </span>
+<span>                                               horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                               <span class="va">fredmd</span>,</span>
+<span>                                               target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                               window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                               pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                               num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                               verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>100 components</p>
+<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tvpcr100_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">forecaster_tvpcr100</span>, </span>
+<span>                                               horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                               <span class="va">fredmd</span>,</span>
+<span>                                               target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                               window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                               pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                               num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                               verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>150 components</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tvpcr150_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">forecaster_tvpcr150</span>, </span>
+<span>                                               horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                               <span class="va">fredmd</span>,</span>
+<span>                                               target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                               window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                               pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                               num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                               verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+<p>250 components</p>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">tvpcr250_horizon1</span> <span class="op">&lt;-</span> <span class="fu">forecast_evaluation_fredmd</span><span class="op">(</span>forecaster <span class="op">=</span> <span class="va">forecaster_tvpcr250</span>, </span>
+<span>                                               horizon <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                               <span class="va">fredmd</span>,</span>
+<span>                                               target <span class="op">=</span> <span class="va">target_variables</span>,</span>
+<span>                                               window_size <span class="op">=</span> <span class="fl">672</span>,</span>
+<span>                                               pseudo <span class="op">=</span> <span class="cn">TRUE</span>,</span>
+<span>                                               num_cores <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                                               verbose <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
+</div>
+</div>
+<div id="results" class="section level2" number="2.2">
+<h2>
+<span class="header-section-number">2.2</span> Results<a class="anchor" aria-label="anchor" href="#results"><i class="fas fa-link"></i></a>
+</h2>
+<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Benchmark results are automatically loaded if available for the correct </span></span>
+<span><span class="co">## horizon/window size/pseudo type in the 'results' folder</span></span>
+<span><span class="va">rmse_table</span> <span class="op">&lt;-</span> <span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">ar1_horizon1</span>, column_name <span class="op">=</span> <span class="st">"AR(1)"</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">pcrquadratic_horizon1</span>, column_name <span class="op">=</span> <span class="st">"PCR - Quadratic"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">kernelquadratic_horizon1</span>, column_name <span class="op">=</span> <span class="st">"Kernel PCA - quadratic"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">kernelgauss_horizon1</span>, column_name <span class="op">=</span> <span class="st">"Kernel PCA - Gaussian"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">tvpcr50_horizon1</span>, column_name <span class="op">=</span> <span class="st">"TV-PCR (50 components)"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">tvpcr100_horizon1</span>, column_name <span class="op">=</span> <span class="st">"TV-PCR (100 components)"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">tvpcr150_horizon1</span>, column_name <span class="op">=</span> <span class="st">"TV-PCR (150 components)"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">tvpcr250_horizon1</span>, column_name <span class="op">=</span> <span class="st">"TV-PCR (250 components)"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">diffusionmap_horizon1</span>, column_name <span class="op">=</span> <span class="st">"Diffusion Map"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">rtsne_reg</span>, column_name <span class="op">=</span> <span class="st">"RTSNE"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">lle_reg</span>, column_name <span class="op">=</span> <span class="st">"LLSE"</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html">left_join</a></span><span class="op">(</span><span class="fu">get_rmse_table</span><span class="op">(</span><span class="va">isomap</span>, column_name <span class="op">=</span> <span class="st">"ISOMAP"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Loading benchmark results from results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Registered S3 method overwritten by 'quantmod':</span></span>
+<span><span class="co">#&gt;   method            from</span></span>
+<span><span class="co">#&gt;   as.zoo.data.frame zoo</span></span>
+<span><span class="co">#&gt; Loading benchmark results from results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span>
+<span><span class="co">#&gt; Loading benchmark results from</span></span>
+<span><span class="co">#&gt; results/pcr_horizon1_windowsize672_pseudoTRUE</span></span>
+<span><span class="co">#&gt; Joining, by = "Variable"</span></span></code></pre></div>
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co">## Print table</span></span>
+<span><span class="va">rmse_table</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/across.html">across</a></span><span class="op">(</span><span class="op">-</span><span class="va">Variable</span>, <span class="va">as.numeric</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/pivot_longer.html">pivot_longer</a></span><span class="op">(</span><span class="op">-</span><span class="va">Variable</span>, names_to<span class="op">=</span> <span class="st">"Forecaster"</span>, values_to <span class="op">=</span> <span class="st">"RMSE"</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://tidyr.tidyverse.org/reference/pivot_wider.html">pivot_wider</a></span><span class="op">(</span>names_from <span class="op">=</span> <span class="st">"Variable"</span>, values_from <span class="op">=</span> <span class="st">"RMSE"</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html">mutate</a></span><span class="op">(</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/across.html">across</a></span><span class="op">(</span><span class="op">-</span><span class="va">Forecaster</span>, <span class="op">~</span><span class="fu"><a href="https://rdrr.io/pkg/kableExtra/man/cell_spec.html">cell_spec</a></span><span class="op">(</span><span class="va">.x</span>, bold <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">.x</span><span class="op">==</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html">min</a></span><span class="op">(</span><span class="va">.x</span><span class="op">)</span> <span class="op">&amp;</span> <span class="va">.x</span> <span class="op">&lt;</span> <span class="fl">1</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/knitr/man/kable.html">kable</a></span><span class="op">(</span>format <span class="op">=</span> <span class="st">"html"</span>, </span>
+<span>        caption <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html">paste0</a></span><span class="op">(</span><span class="st">"Relative RMSE for "</span>,</span>
+<span>                         <span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">horizon</span>, </span>
+<span>                         <span class="st">"-step forecasts. Benchmark model: PCR. </span></span>
+<span><span class="st">                         Size of the rolling window: "</span>,</span>
+<span>                         <span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">window_size</span>, <span class="st">". "</span>,</span>
+<span>                         <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html">ifelse</a></span><span class="op">(</span><span class="va">pcr_horizon1</span><span class="op">$</span><span class="va">parameters</span><span class="op">$</span><span class="va">pseudo</span>, </span>
+<span>                                <span class="st">"Pseudo real-time evaluation."</span>,</span>
+<span>                                <span class="st">"Real-time evaluation."</span><span class="op">)</span>,</span>
+<span>                         <span class="st">"\nSignificance levels of the Diebold-Mariano test: </span></span>
+<span><span class="st">                         '\\*\\*\\*' p &lt; 0.001, </span></span>
+<span><span class="st">                         '\\*\\*' p &lt; 0.01,</span></span>
+<span><span class="st">                         '\\*' p &lt; 0.05,</span></span>
+<span><span class="st">                         '.' p &lt; 0.1"</span><span class="op">)</span>, </span>
+<span>        digits <span class="op">=</span> <span class="fl">4</span>,</span>
+<span>        escape <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span> <span class="op">|&gt;</span> </span>
+<span>  <span class="co"># kable(format = "latex", digits = 4)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/pkg/kableExtra/man/kable_classic.html">kable_classic</a></span><span class="op">(</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning in mask$eval_all_mutate(quo): NA introdotti per</span></span>
+<span><span class="co">#&gt; coercizione</span></span>
+<span></span>
+<span><span class="co">#&gt; Warning in mask$eval_all_mutate(quo): NA introdotti per</span></span>
+<span><span class="co">#&gt; coercizione</span></span></code></pre></div>
+<div class="inline-table"><table class=" lightable-classic" style='font-family: "Arial Narrow", "Source Sans Pro", sans-serif; margin-left: auto; margin-right: auto;'>
+<caption>
+<span id="tab:unnamed-chunk-57">Table 2.1: </span>Relative RMSE for 1-step forecasts. Benchmark model: PCR.
+Size of the rolling window: 672. Pseudo real-time evaluation.
+Significance levels of the Diebold-Mariano test:
+‘***’ p &lt; 0.001,
+‘**’ p &lt; 0.01,
+‘*’ p &lt; 0.05,
+‘.’ p &lt; 0.1
+</caption>
+<thead><tr>
+<th style="text-align:left;">
+Forecaster
+</th>
+<th style="text-align:left;">
+UNRATE
+</th>
+<th style="text-align:left;">
+W875RX1
+</th>
+<th style="text-align:left;">
+GS10
+</th>
+<th style="text-align:left;">
+CPIAUCSL
+</th>
+<th style="text-align:left;">
+WPSFD49207
+</th>
+<th style="text-align:left;">
+PAYEMS
+</th>
+<th style="text-align:left;">
+HOUST
+</th>
+<th style="text-align:left;">
+INDPRO
+</th>
+<th style="text-align:left;">
+M2SL
+</th>
+<th style="text-align:left;">
+S.P.500
+</th>
+</tr></thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+AR(1)
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0882</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">8.3617</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1823</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">101.9655</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">62.4514</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">198.4264</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">86.6116</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">48.7884</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">71.4029</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">6.5468</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PCR - Quadratic
+</td>
+<td style="text-align:left;">
+<span style="     ">2.1485</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8289</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4499</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4738</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.5585</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4418</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1011</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8524</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.262</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.7617</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Kernel PCA - quadratic
+</td>
+<td style="text-align:left;">
+<span style="     ">3.3336</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1895</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">3.6572</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.7758</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.9969</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1796</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1134</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3828</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4337</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">3.9549</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Kernel PCA - Gaussian
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8915</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9214</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0057</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0219</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0146</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9622</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0368</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1435</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0515</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0034</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TV-PCR (50 components)
+</td>
+<td style="text-align:left;">
+<span style="     ">1.2375</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.6268</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3369</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0558</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.9234</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3051</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.2172</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.6204</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.5353</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0466</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TV-PCR (100 components)
+</td>
+<td style="text-align:left;">
+<span style="     ">1.2816</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3638</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.5506</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4397</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1168</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4026</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3479</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8977</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.943</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3431</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TV-PCR (150 components)
+</td>
+<td style="text-align:left;">
+<span style="     ">1.3337</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4534</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.4939</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.7923</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4335</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4409</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.6151</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8363</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.0773</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8511</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+TV-PCR (250 components)
+</td>
+<td style="text-align:left;">
+<span style="     ">1.4002</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.8234</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">3.2158</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.0278</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.77</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.947</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.1181</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.2597</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.7991</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">2.3708</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Diffusion Map
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.8236</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9832</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.6003</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.5616</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.419</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.7146</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0534</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.024</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.1115</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.2635</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+RTSNE
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8375</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8508</span>
+</td>
+<td style="text-align:left;">
+<span style=" NA    ">NA</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9997</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9927</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8429</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0496</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0669</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0017</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0204</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+LLSE
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8249</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.8296</span>
+</td>
+<td style="text-align:left;">
+<span style=" NA    ">NA</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.9953</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.995</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8526</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0531</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0821</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0096</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0142</span>
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+ISOMAP
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8308</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8511</span>
+</td>
+<td style="text-align:left;">
+<span style=" NA    ">0.9546</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9999</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.9996</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">0.8477</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.063</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0235</span>
+</td>
+<td style="text-align:left;">
+<span style=" font-weight: bold;    ">0.9905</span>
+</td>
+<td style="text-align:left;">
+<span style="     ">1.0152</span>
+</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+</div>
+  <div class="chapter-nav">
+<div class="prev"><a href="data-preparation.html"><span class="header-section-number">1</span> Data preparation</a></div>
+<div class="empty"></div>
+</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
+      <ul class="nav navbar-nav">
+<li><a class="nav-link" href="#forecast-evaluation"><span class="header-section-number">2</span> Forecast evaluation</a></li>
+<li>
+<a class="nav-link" href="#evaluation-of-the-models"><span class="header-section-number">2.1</span> Evaluation of the models</a><ul class="nav navbar-nav">
+<li><a class="nav-link" href="#principal-component-regression-pcr"><span class="header-section-number">2.1.1</span> Principal Component Regression (PCR)</a></li>
+<li><a class="nav-link" href="#diffusion-map"><span class="header-section-number">2.1.2</span> Diffusion map</a></li>
+<li><a class="nav-link" href="#quadratic-pcr"><span class="header-section-number">2.1.3</span> Quadratic PCR</a></li>
+<li><a class="nav-link" href="#kernel-pcr---quadratic-kernel"><span class="header-section-number">2.1.4</span> Kernel PCR - Quadratic kernel</a></li>
+<li><a class="nav-link" href="#kernel-pcr---gaussian-kernel"><span class="header-section-number">2.1.5</span> Kernel PCR - Gaussian kernel</a></li>
+<li><a class="nav-link" href="#time-varying-pcr"><span class="header-section-number">2.1.6</span> Time-varying PCR</a></li>
+</ul>
+</li>
+<li><a class="nav-link" href="#results"><span class="header-section-number">2.2</span> Results</a></li>
+</ul>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          
+        </ul>
+</div>
+    </nav>
+</div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>Forecast evaluation pipeline</strong>" was written by Alessandro Ciancetta. It was last built on 2023-04-27.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer><!-- dynamically load mathjax for compatibility with self-contained --><script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    var src = "true";
+    if (src === "" || src === "true") src = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js?config=TeX-MML-AM_CHTML";
+    if (location.protocol !== "file:")
+      if (/^https?:/.test(src))
+        src = src.replace(/^https?:/, '');
+    script.src = src;
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script><script type="text/x-mathjax-config">const popovers = document.querySelectorAll('a.footnote-ref[data-toggle="popover"]');
+for (let popover of popovers) {
+  const div = document.createElement('div');
+  div.setAttribute('style', 'position: absolute; top: 0, left:0; width:0, height:0, overflow: hidden; visibility: hidden;');
+  div.innerHTML = popover.getAttribute('data-content');
+
+  var has_math = div.querySelector("span.math");
+  if (has_math) {
+    document.body.appendChild(div);
+    MathJax.Hub.Queue(["Typeset", MathJax.Hub, div]);
+    MathJax.Hub.Queue(function() {
+      popover.setAttribute('data-content', div.innerHTML);
+      document.body.removeChild(div);
+    })
+  }
+}
+</script>
+</body>
+</html>

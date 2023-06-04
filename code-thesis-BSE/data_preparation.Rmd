@@ -1,0 +1,256 @@
+---
+title: 'FRED-MD: outliers, missing values, stationarity'
+author: "Alessandro Ciancetta"
+date: '2023-04-16'
+output: html_document
+knit: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "rendered_notebooks") })
+---
+
+# Data preparation
+
+```{r message=FALSE, warning=FALSE, results = "hide", include = FALSE}
+library(tidyverse)
+library(lubridate)
+library(gridExtra)
+```
+
+
+```{r message=FALSE, warning=FALSE, results = "hide"}
+## Load code from script folders
+preprocessing_scripts_env <- new.env()    
+file.sources = list.files(paste0(getwd(), c("/sourcecode/data_preprocessing/")), 
+                          pattern=".R$", full.names=TRUE, 
+                          ignore.case=TRUE)
+sapply(file.sources, source, preprocessing_scripts_env)
+attach(preprocessing_scripts_env, name="sourced_scripts")
+```
+
+
+In this notebook, we will prepare the FRED-MD data for the analysis. We will follow McCracken and Ng (2016) for handling missing values and outliers. We will also follow their rules for transforming the series and make them stationary.
+
+Notice that the notebook shows the whole procedure on the current vintage of the dataset for illustrative purposes. The steps for preparing the dataset are then collected in a function that will be used in the actual real-time forecast evaluation using all the vintages of FRED-MD.
+
+## Loading the data and first inspection
+
+```{r}
+fredmd <- read.csv("data/current.csv")
+
+## The first row contains the transformation codes
+d <- as_tibble(fredmd[-1,])
+tcodes <- unlist(fredmd[1,-1])
+```
+
+```{r}
+## Codes for transformations in Mc Cracken and Ng 2015
+fredmd[1,][1:10]
+```
+
+```{r}
+## Variables
+var_names <- names(d)[-1]
+print(length(var_names))
+```
+
+
+```{r}
+print(var_names)
+```
+
+```{r}
+cat("\nThe last observation is missing for", sum(is.na(d[nrow(d),])), "variables")
+```
+
+
+```{r}
+count_missing(d[-nrow(d),])
+```
+
+*COMMENTS ABOUT THE SERIES WITH MORE MISSING VALUES*
+
+### Policy-relevant variables
+
+Following Kim and Swanson (2010) we consider the 10 key variables reported in the table below. The table also reports 6 policy-relevant variables mentioned in that paper.
+
+| Variable  | Description |
+------------|-----------------|
+| UNRATE	  |Unemployment rate  |
+| W875RX1 	|Real personal income ex transfer receipts  |
+| GS10 	  	|10-Year Treasury Rate  |
+| CPIAUCSL	|Consumer price index (all items)  |
+| WPSFD49207    |Producer Price Index (Finished goods)| 
+|PAYEMS 	  |All Employees (total monfarm)  |
+| HOUST 	  |Housing Starts (Total New Privately Owned)  |
+| INDPRO	  |Industrial production  |
+| M2SL		  |M2 Money Stock  |
+| S.P.500 	|S&P500 Common Stock Price Index: Composite  |
+|-----|-----|
+| RETAILx 	|Retail and Food Services Sales  |
+| ISRATIOx 	|Total Business: Inventories to Sales Ratio  |
+| AMDMNOx 	|New Orders for Durable Goods  |
+| AMDMUOx 	|Unfilled Orders for Durable Goods  |
+| NAPMNOI 	|ISM : New Orders Index (aka purchasing managers' index (PMI))  |
+| NAPMII 	  |ISM : Inventories Index  |
+|-----|-----|
+|GNP not available at monthly frequency | |
+
+
+*Remark*: the series PPIFGS (Producer price index of finished goods) has been discontinued from the 2016-03 vintage. The new varaible for the PPI index of finished goods is WPSFD49207.  
+
+
+```{r message=FALSE, warning=FALSE, include = FALSE, eval=FALSE}
+# Among the "PPI***" variables, only PPICMM is still available in FREDMD. Below we report a picture comparing the two series. We can notice that the correlation between the two is high, even if PPICMM shows higher volatility.
+
+ppiaco <- read_csv("data/PPIACO.csv", col_select = c(1,2))
+ppiaco <- ppiaco |> 
+  filter(DATE >= ymd("1959-01-01") & DATE <= ymd("2023-02-01"))
+
+plot_ts(x = ppiaco$PPIACO, 
+        date = format(ppiaco$DATE, "%m-%d-%Y"), 
+        labeller = labeller(variable = c(x = "PPIACO (black) and PPICMM (red)"))) +
+  geom_line(aes(y = d$PPICMM), color = "darkred", size = 0.8)
+
+```
+
+
+
+
+```{r}
+target_variables <- c("UNRATE", "W875RX1", "GS10", 
+                      "CPIAUCSL", "WPSFD49207", "PAYEMS", 
+                      "HOUST", "INDPRO", "M2SL", "S.P.500")
+
+extra_variables <- c("RETAILx", "ISRATIOx", "AMDMNOx", 
+                     "AMDMUOx", "NAPMNOI", "NAPMII")
+```
+
+
+## Transformation
+
+The column `tcode` denotes the following data transformation for a series $x$: (1) no transformation; (2) $\Delta x_t$; (3) $\Delta^2 x_T$; (4) $\log(x_t)$; (5) $\Delta\log(x_t)$; (6) $\Delta^2\log(x_t)$ (7) $\Delta(x_t / x_{t-1} -1)$.
+
+The FRED column gives mnemonics in FRED followed by a short description. The comparable series in Global Insight is given in the column GSI.
+
+
+```{r transformation}
+d_stationary <- transform_fred(d, tcode = tcodes)
+plot_ts(d_stationary[,target_variables], date = d_stationary[,1], n_row = 5)
+```
+
+
+```{r}
+cat("\n", sum(is.na(d_stationary)) - sum(is.na(d)), "missing values have been introduced")
+```
+
+
+```{r}
+count_missing(d_stationary[-c(1, nrow(d_stationary)),])
+```
+
+
+## Imputation
+
+### Outliers detection
+```{r}
+count_outlier(d_stationary)
+```
+```{r}
+## Outliers to NAs
+d_outlier <- outlier_to_missing(d_stationary)
+```
+
+
+```{r}
+cat("\n", sum(is.na(d_outlier)) - sum(is.na(d_stationary)), "missing values have been introduced")
+```
+
+
+```{r fig.height = 12, warning=FALSE}
+compare_data(d_stationary, d_outlier, 
+             variable_list = target_variables,
+             ribbon_labs = c("With outliers", "Without outliers")
+             )
+```
+
+
+
+### Imputation of the missing values
+
+```{r}
+d_imputed <- em_impute(d_outlier, r = 8) 
+# d_imputed <- extract_and_fill(d_outlier, r = 8)$imputed ## Previous code, gives even more smoothed imputated values
+```
+
+```{r fig.height = 12, warning=FALSE}
+compare_data(d_stationary, d_imputed, 
+             variable_list = target_variables,
+             ribbon_labs = c("With missing", "Imputed")
+             )
+```
+
+
+
+
+```{r fig.height = 12, warning=FALSE, include=FALSE}
+## plots for latex
+comparison_plot1 <- compare_data(d, d_stationary, d_imputed, 
+             variable_list = target_variables[1:5],
+             ribbon_labs = c("Raw", "Stationary", "Imputed"))
+comparison_plot2 <- compare_data(d, d_stationary, d_imputed, 
+             variable_list = target_variables[6:10],
+             ribbon_labs = c("Raw", "Stationary", "Imputed"))
+      
+ggsave(filename = "preprocessing_example1.png", 
+       plot = comparison_plot1,
+       width = 12, height = 14, path = "../latex-thesis-BSE/plots/")
+ggsave(filename = "preprocessing_example2.png", 
+       plot = comparison_plot2,
+       width = 12, height = 14, path = "../latex-thesis-BSE/plots/")
+
+```
+
+
+## Pipeline function
+
+The following function wraps up the code and will be used during the forecast evaluation.
+
+```{r}
+preprocess_fredmd <- function(fredmd, r = 8, thresh = 0.01, verbose = TRUE){
+  ## extract data and transformation codes
+  d <- as_tibble(fredmd[-1,])
+  tcodes <- unlist(fredmd[1,-1])
+  
+  ## execute the preprocessing pipeline
+  d_stationary <- transform_fred(d, tcode = tcodes)
+  d_outlier <- outlier_to_missing(d_stationary)
+  # d_imputed <- extract_and_fill(d_outlier, r = 8)$imputed
+  d_imputed <- em_impute(d_outlier, r, thresh, verbose)
+  
+  ## output
+  return(d_imputed)
+}
+```
+
+```{r warning=FALSE, message=FALSE, results='hide'}
+preprocessed_data <- preprocess_fredmd(fredmd)
+```
+
+
+```{r}
+preprocessed_data
+```
+
+
+```{r message=FALSE, warning=FALSE}
+# check that wrapper function gives the same result
+sum(preprocessed_data != d_imputed)
+```
+
+
+
+
+
+
+
+
+
